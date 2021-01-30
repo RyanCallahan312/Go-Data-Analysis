@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	uuidWithHyphen := uuid.NewRandom()
-	uuid := strings.Replace(uuidWithHyphen.String(), "-", "", -1)
+	var uuidWithHyphen uuid.UUID = uuid.NewRandom()
+	var uuid string = strings.Replace(uuidWithHyphen.String(), "-", "", -1)
 	fmt.Println(uuid)
 }
