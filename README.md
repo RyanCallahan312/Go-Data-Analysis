@@ -10,5 +10,10 @@ go mod tidy
 # Build and Run
 To build and run, in the top level directory run
 ```
-go run main.go
+go run .
+```
+# Test
+To test, in the top level directory run
+```
+go test
 ```
