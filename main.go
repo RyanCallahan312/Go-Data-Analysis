@@ -2,13 +2,21 @@ package main
 
 import (
 	"fmt"
-	"strings"
-
-	"github.com/pborman/uuid"
+	"os"
+	"strconv"
 )
 
 func main() {
-	var uuidWithHyphen uuid.UUID = uuid.NewRandom()
-	var uuid string = strings.Replace(uuidWithHyphen.String(), "-", "", -1)
-	fmt.Println(uuid)
+
+	i, err := strconv.ParseInt(os.Args[1], 10, 32)
+	if err != nil {
+		panic(err)
+	}
+	numberOfUuids := int(i)
+
+	uuids := getUuids(numberOfUuids)
+
+	for i, value := range uuids {
+		fmt.Printf("%d - %s\n", i+1, value)
+	}
 }
