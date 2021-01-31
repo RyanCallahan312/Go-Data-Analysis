@@ -2,19 +2,21 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 )
 
 func main() {
 
-	i, err := strconv.ParseInt(os.Args[1], 10, 32)
+	fmt.Print("Enter how many uuid's you would like to generate: ")
+	var input string
+	fmt.Scanln(&input)
+
+	numberOfUuids, err := strconv.ParseInt(input, 10, 32)
 	if err != nil {
 		panic(err)
 	}
-	numberOfUuids := int(i)
 
-	uuids := getUuids(numberOfUuids)
+	uuids := getUuids(int(numberOfUuids))
 
 	for i, value := range uuids {
 		fmt.Printf("%d - %s\n", i+1, value)
