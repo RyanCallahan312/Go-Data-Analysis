@@ -38,7 +38,10 @@ func main() {
 	for (page * response.Metadata.ResultsPerPage) < (response.Metadata.TotalResults) {
 		page++
 		filters["page"] = strconv.Itoa(page)
-		writer.WriteString(makeRequest(baseURL, filters, httpClient).TextOutput())
+		_, err = writer.WriteString(makeRequest(baseURL, filters, httpClient).TextOutput())
+		if err != nil {
+			log.Fatalln(err)
+		}
 
 	}
 
