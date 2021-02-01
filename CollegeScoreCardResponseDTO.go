@@ -19,7 +19,7 @@ func (resDTO CollegeScoreCardResponseDTO) TextOutput() string {
 	resDTO.Metadata.TextOutput(&sb)
 
 	for i, result := range resDTO.Results {
-		sb.WriteString(fmt.Sprintf("Result %d: \n", i))
+		sb.WriteString(fmt.Sprintf("Result %d: \n", i+1))
 		result.TextOutput(&sb)
 	}
 
