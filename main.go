@@ -15,7 +15,10 @@ import (
 )
 
 func main() {
-	godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	httpClient := &http.Client{}
 	baseURL := "https://api.data.gov/ed/collegescorecard/v1/schools.json"
@@ -26,7 +29,11 @@ func main() {
 	filters["fields"] = "id,school.name,school.city,2018.student.size,2017.student.size,2017.earnings.3_yrs_after_completion.overall_count_over_poverty_line,2016.repayment.3_yr_repayment.overall"
 	filters["api_key"] = os.Getenv("API_KEY")
 
-	outFile, _ := os.Create("./out.txt")
+	outFile, err := os.Create("./out.txt")
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	writer := bufio.NewWriter(outFile)
 
 	order := make(chan int, 1)
@@ -71,12 +78,18 @@ func makeRequest(baseURL string, filters map[string]string, page int, httpClient
 			case message = <-order:
 				if message == page-1 {
 
-					writer.WriteString(response.TextOutput())
+					_, err := writer.WriteString(response.TextOutput())
+					if err != nil {
+						log.Fatalln(err)
+					}
 				}
 			}
 		}
 	} else {
-		writer.WriteString(response.TextOutput())
+		_, err := writer.WriteString(response.TextOutput())
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 
 	return response
@@ -109,7 +122,10 @@ func requestData(url *url.URL, httpClient *http.Client) CollegeScoreCardResponse
 	}
 
 	var parsedResponse CollegeScoreCardResponseDTO
-	json.NewDecoder(resp.Body).Decode(&parsedResponse)
+	err = json.NewDecoder(resp.Body).Decode(&parsedResponse)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	return parsedResponse
 }
