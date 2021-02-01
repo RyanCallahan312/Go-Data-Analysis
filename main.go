@@ -3,13 +3,11 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
-	"sync"
 
 	"github.com/joho/godotenv"
 )
@@ -33,63 +31,24 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-
 	writer := bufio.NewWriter(outFile)
 
-	order := make(chan int, 1)
+	response := makeRequest(baseURL, filters, httpClient)
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	response := makeRequest(baseURL, filters, page, httpClient, &wg, writer, order)
-
-	order = make(chan int, response.Metadata.TotalResults/response.Metadata.ResultsPerPage)
-
-	for ((page + 1) * response.Metadata.ResultsPerPage) < (response.Metadata.TotalResults / 4) {
+	for (page * response.Metadata.ResultsPerPage) < (response.Metadata.TotalResults) {
 		page++
-
-		wg.Add(1)
-		go makeRequest(baseURL, filters, page, httpClient, &wg, writer, order)
+		filters["page"] = strconv.Itoa(page)
+		writer.WriteString(makeRequest(baseURL, filters, httpClient).TextOutput())
 
 	}
 
-	fmt.Println(order)
-
-	wg.Wait()
-
 }
 
-func makeRequest(baseURL string, filters map[string]string, page int, httpClient *http.Client, wg *sync.WaitGroup, writer *bufio.Writer, order chan int) CollegeScoreCardResponseDTO {
-
-	defer func() {
-		order <- page
-		wg.Done()
-	}()
-
-	filters["page"] = strconv.Itoa(page)
+func makeRequest(baseURL string, filters map[string]string, httpClient *http.Client) CollegeScoreCardResponseDTO {
 
 	requestURL := getRequestURL(baseURL, filters)
 
 	response := requestData(requestURL, httpClient)
-
-	if page > 1 {
-		message := -1
-		for message != page-1 {
-			message = <-order
-			if message == page-1 {
-
-				_, err := writer.WriteString(response.TextOutput())
-				if err != nil {
-					log.Fatalln(err)
-				}
-			}
-
-		}
-	} else {
-		_, err := writer.WriteString(response.TextOutput())
-		if err != nil {
-			log.Fatalln(err)
-		}
-	}
 
 	return response
 }
@@ -102,9 +61,6 @@ func getRequestURL(baseURL string, filters map[string]string) *url.URL {
 
 	query := requestURL.Query()
 	for key, value := range filters {
-		if key == "page" {
-			fmt.Println(value)
-		}
 		query.Set(key, value)
 	}
 	requestURL.RawQuery = query.Encode()
@@ -119,6 +75,7 @@ func requestData(url *url.URL, httpClient *http.Client) CollegeScoreCardResponse
 	if err != nil {
 		log.Fatalln(err)
 	}
+	defer resp.Body.Close()
 
 	var parsedResponse CollegeScoreCardResponseDTO
 	err = json.NewDecoder(resp.Body).Decode(&parsedResponse)
