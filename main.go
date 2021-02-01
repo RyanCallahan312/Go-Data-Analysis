@@ -74,16 +74,15 @@ func makeRequest(baseURL string, filters map[string]string, page int, httpClient
 	if page > 1 {
 		message := -1
 		for message != page-1 {
-			select {
-			case message = <-order:
-				if message == page-1 {
+			message = <-order
+			if message == page-1 {
 
-					_, err := writer.WriteString(response.TextOutput())
-					if err != nil {
-						log.Fatalln(err)
-					}
+				_, err := writer.WriteString(response.TextOutput())
+				if err != nil {
+					log.Fatalln(err)
 				}
 			}
+
 		}
 	} else {
 		_, err := writer.WriteString(response.TextOutput())
