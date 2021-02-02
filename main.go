@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -77,16 +78,36 @@ func shouldWrite(requestNumber int, ch chan int) bool {
 func writeRequestToFile(baseURL string, filters map[string]string, page int, httpClient *http.Client, writer *bufio.Writer, fileLock *sync.Mutex, orderChannel chan int) CollegeScoreCardResponseDTO {
 	requestURL := getRequestURL(baseURL, filters)
 
-	response := requestData(requestURL, httpClient)
+	retry := true
+	retryCount := 0
+
+	var response CollegeScoreCardResponseDTO
+	var rawResponse string
+
+	for retry {
+		response, rawResponse = requestData(requestURL, httpClient)
+		if rawResponse == "" || retryCount > 3 {
+			retry = false
+		}
+		retryCount++
+	}
 
 	for !shouldWrite(page, orderChannel) {
 
 	}
 
 	fileLock.Lock()
-	_, err := writer.WriteString(response.TextOutput())
-	if err != nil {
-		log.Fatalln(err)
+	if retry {
+		_, err := writer.WriteString(rawResponse)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+	} else {
+		_, err := writer.WriteString(response.TextOutput())
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 	fileLock.Unlock()
 	orderChannel <- page + 1
@@ -109,7 +130,7 @@ func getRequestURL(baseURL string, filters map[string]string) *url.URL {
 	return requestURL
 }
 
-func requestData(url *url.URL, httpClient *http.Client) CollegeScoreCardResponseDTO {
+func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardResponseDTO, string) {
 	request, _ := http.NewRequest(http.MethodGet, url.String(), nil)
 
 	resp, err := httpClient.Do(request)
@@ -119,10 +140,24 @@ func requestData(url *url.URL, httpClient *http.Client) CollegeScoreCardResponse
 	defer resp.Body.Close()
 
 	var parsedResponse CollegeScoreCardResponseDTO
-	err = json.NewDecoder(resp.Body).Decode(&parsedResponse)
-	if err != nil {
-		log.Fatalln(err)
+	rawResponse := ""
+
+	if resp.StatusCode == http.StatusOK {
+
+		err = json.NewDecoder(resp.Body).Decode(&parsedResponse)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+	} else {
+
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		rawResponse = string(bodyBytes)
 	}
 
-	return parsedResponse
+	return parsedResponse, rawResponse
 }
