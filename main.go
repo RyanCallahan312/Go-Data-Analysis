@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/joho/godotenv"
 )
@@ -31,27 +32,64 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
 	writer := bufio.NewWriter(outFile)
+	var fileLock sync.Mutex
 
-	response := makeRequest(baseURL, filters, httpClient)
+	orderChannel := make(chan int, 1)
+	orderChannel <- 0
+	response := writeRequestToFile(baseURL, filters, page, httpClient, writer, &fileLock, orderChannel)
 
-	for (page * response.Metadata.ResultsPerPage) < (response.Metadata.TotalResults) {
+	wg := sync.WaitGroup{}
+	for (page)*response.Metadata.ResultsPerPage < response.Metadata.TotalResults {
 		page++
-		filters["page"] = strconv.Itoa(page)
-		_, err = writer.WriteString(makeRequest(baseURL, filters, httpClient).TextOutput())
-		if err != nil {
-			log.Fatalln(err)
-		}
+
+		wg.Add(1)
+		go func(page int) {
+			defer wg.Done()
+
+			flt := make(map[string]string)
+			for k, v := range filters {
+				flt[k] = v
+			}
+			flt["page"] = strconv.Itoa(page)
+
+			_ = writeRequestToFile(baseURL, flt, page, httpClient, writer, &fileLock, orderChannel)
+
+		}(page)
 
 	}
 
+	wg.Wait()
+
 }
 
-func makeRequest(baseURL string, filters map[string]string, httpClient *http.Client) CollegeScoreCardResponseDTO {
+func shouldWrite(requestNumber int, ch chan int) bool {
+	message := <-ch
 
+	if requestNumber != message {
+		ch <- message
+	}
+
+	return requestNumber == message
+}
+
+func writeRequestToFile(baseURL string, filters map[string]string, page int, httpClient *http.Client, writer *bufio.Writer, fileLock *sync.Mutex, orderChannel chan int) CollegeScoreCardResponseDTO {
 	requestURL := getRequestURL(baseURL, filters)
 
 	response := requestData(requestURL, httpClient)
+
+	for !shouldWrite(page, orderChannel) {
+
+	}
+
+	fileLock.Lock()
+	_, err := writer.WriteString(response.TextOutput())
+	if err != nil {
+		log.Fatalln(err)
+	}
+	fileLock.Unlock()
+	orderChannel <- page + 1
 
 	return response
 }
