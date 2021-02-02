@@ -13,6 +13,7 @@ To hit the api you must create a file named .env with your api key. An example o
 ```
 API_KEY=<Your Api Key Here>
 ```
+
 # Build and Run
 To build and run, in the top level directory run:
 ```
