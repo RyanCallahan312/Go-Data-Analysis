@@ -168,7 +168,7 @@ func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardRespons
 		}
 
 	} else {
-
+    
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Fatal(err)
