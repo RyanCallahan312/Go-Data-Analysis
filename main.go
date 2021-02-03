@@ -68,6 +68,8 @@ func main() {
 	}
 	wg.Wait()
 
+	wg.Wait()
+
 }
 
 func shouldWrite(requestNumber int, ch chan int) bool {
@@ -107,7 +109,6 @@ func writeRequestToFile(baseURL string, filters map[string]string, page int, htt
 	if err != nil {
 		log.Fatalln(err)
 	}
-
 	fileLock.Unlock()
 	orderChannel <- page + 1
 
@@ -167,6 +168,7 @@ func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardRespons
 		}
 
 	} else {
+    
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Fatal(err)
