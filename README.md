@@ -1,3 +1,5 @@
+This branch uses goroutines to request data synchronously and can cause rate limit errors. Try the master-no-concurrency branch for syncronous data fetching. 
+
 # Installation 
 To install dependencies without using $GOROOT, in the top level directory, run:
 ```
