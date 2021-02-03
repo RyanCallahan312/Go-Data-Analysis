@@ -48,7 +48,7 @@ func main() {
 	response := writeRequestToFile(baseURL, filters, page, httpClient, writer, &fileLock, orderChannel)
 
 	wg := sync.WaitGroup{}
-	for (page+1)*response.Metadata.ResultsPerPage < response.Metadata.TotalResults {
+	for (page+1)*response.Metadata.ResultsPerPage <= response.Metadata.TotalResults {
 		page++
 
 		wg.Add(1)
@@ -168,7 +168,7 @@ func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardRespons
 		}
 
 	} else {
-    
+
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Fatal(err)
