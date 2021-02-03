@@ -27,6 +27,10 @@ func main() {
 
 	filters := make(map[string]string)
 	page := 0
+
+	//using this to get around rate limiting
+	filters["per_page"] = "70"
+
 	filters["school.degrees_awarded.predominant"] = "2,3"
 	filters["fields"] = "id,school.name,school.city,2018.student.size,2017.student.size,2017.earnings.3_yrs_after_completion.overall_count_over_poverty_line,2016.repayment.3_yr_repayment.overall"
 	filters["api_key"] = os.Getenv("API_KEY")
@@ -137,6 +141,7 @@ func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardRespons
 	var resp *http.Response
 	var err error
 
+	//retry count at 10 seems to work to get around rate limiting
 	for retry && retryCount < 10 {
 
 		resp, err = httpClient.Do(request)
@@ -146,6 +151,8 @@ func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardRespons
 
 		if resp.StatusCode != http.StatusOK {
 			retryCount++
+
+			//spacing out the retry requests randomly because if two goroutines retry at the same time it might cause it to rate limit again
 			time.Sleep(time.Duration(200+rand.Int31n(300)) * time.Millisecond)
 		} else {
 			retry = false
