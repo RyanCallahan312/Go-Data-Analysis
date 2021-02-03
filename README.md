@@ -1,3 +1,5 @@
+This branch requests data synchronously. Try the master branch for asyncronous data fetching.
+
 # Installation 
 To install dependencies without using $GOROOT, in the top level directory, run:
 ```
