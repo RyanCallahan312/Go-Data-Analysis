@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -42,7 +44,7 @@ func main() {
 	response := writeRequestToFile(baseURL, filters, page, httpClient, writer, &fileLock, orderChannel)
 
 	wg := sync.WaitGroup{}
-	for (page)*response.Metadata.ResultsPerPage < response.Metadata.TotalResults {
+	for (page+1)*response.Metadata.ResultsPerPage < response.Metadata.TotalResults {
 		page++
 
 		wg.Add(1)
@@ -60,7 +62,6 @@ func main() {
 		}(page)
 
 	}
-
 	wg.Wait()
 
 }
@@ -78,26 +79,14 @@ func shouldWrite(requestNumber int, ch chan int) bool {
 func writeRequestToFile(baseURL string, filters map[string]string, page int, httpClient *http.Client, writer *bufio.Writer, fileLock *sync.Mutex, orderChannel chan int) CollegeScoreCardResponseDTO {
 	requestURL := getRequestURL(baseURL, filters)
 
-	retry := true
-	retryCount := 0
-
-	var response CollegeScoreCardResponseDTO
-	var rawResponse string
-
-	for retry {
-		response, rawResponse = requestData(requestURL, httpClient)
-		if rawResponse == "" || retryCount > 3 {
-			retry = false
-		}
-		retryCount++
-	}
+	response, rawResponse := requestData(requestURL, httpClient)
 
 	for !shouldWrite(page, orderChannel) {
 
 	}
 
 	fileLock.Lock()
-	if retry {
+	if rawResponse != "" {
 		_, err := writer.WriteString(rawResponse)
 		if err != nil {
 			log.Fatalln(err)
@@ -109,6 +98,12 @@ func writeRequestToFile(baseURL string, filters map[string]string, page int, htt
 			log.Fatalln(err)
 		}
 	}
+
+	err := writer.Flush()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	fileLock.Unlock()
 	orderChannel <- page + 1
 
@@ -133,30 +128,48 @@ func getRequestURL(baseURL string, filters map[string]string) *url.URL {
 func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardResponseDTO, string) {
 	request, _ := http.NewRequest(http.MethodGet, url.String(), nil)
 
-	resp, err := httpClient.Do(request)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer resp.Body.Close()
+	retry := true
+	retryCount := 0
 
 	var parsedResponse CollegeScoreCardResponseDTO
 	rawResponse := ""
 
+	var resp *http.Response
+	var err error
+
+	for retry && retryCount < 10 {
+
+		resp, err = httpClient.Do(request)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			retryCount++
+			time.Sleep(time.Duration(200+rand.Int31n(300)) * time.Millisecond)
+		} else {
+			retry = false
+		}
+	}
+
 	if resp.StatusCode == http.StatusOK {
 
-		err = json.NewDecoder(resp.Body).Decode(&parsedResponse)
+		err := json.NewDecoder(resp.Body).Decode(&parsedResponse)
 		if err != nil {
 			log.Fatalln(err)
 		}
 
 	} else {
-
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Fatal(err)
 		}
-
 		rawResponse = string(bodyBytes)
+	}
+
+	err = resp.Body.Close()
+	if err != nil {
+		log.Fatalln(err)
 	}
 
 	return parsedResponse, rawResponse
