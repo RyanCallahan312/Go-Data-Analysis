@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -27,10 +25,6 @@ func main() {
 
 	filters := make(map[string]string)
 	page := 0
-
-	//using this to get around rate limiting
-	filters["per_page"] = "70"
-
 	filters["school.degrees_awarded.predominant"] = "2,3"
 	filters["fields"] = "id,school.name,school.city,2018.student.size,2017.student.size,2017.earnings.3_yrs_after_completion.overall_count_over_poverty_line,2016.repayment.3_yr_repayment.overall"
 	filters["api_key"] = os.Getenv("API_KEY")
@@ -48,7 +42,7 @@ func main() {
 	response := writeRequestToFile(baseURL, filters, page, httpClient, writer, &fileLock, orderChannel)
 
 	wg := sync.WaitGroup{}
-	for (page+1)*response.Metadata.ResultsPerPage < response.Metadata.TotalResults {
+	for (page)*response.Metadata.ResultsPerPage < response.Metadata.TotalResults {
 		page++
 
 		wg.Add(1)
@@ -66,7 +60,6 @@ func main() {
 		}(page)
 
 	}
-	wg.Wait()
 
 	wg.Wait()
 
@@ -85,14 +78,26 @@ func shouldWrite(requestNumber int, ch chan int) bool {
 func writeRequestToFile(baseURL string, filters map[string]string, page int, httpClient *http.Client, writer *bufio.Writer, fileLock *sync.Mutex, orderChannel chan int) CollegeScoreCardResponseDTO {
 	requestURL := getRequestURL(baseURL, filters)
 
-	response, rawResponse := requestData(requestURL, httpClient)
+	retry := true
+	retryCount := 0
+
+	var response CollegeScoreCardResponseDTO
+	var rawResponse string
+
+	for retry {
+		response, rawResponse = requestData(requestURL, httpClient)
+		if rawResponse == "" || retryCount > 3 {
+			retry = false
+		}
+		retryCount++
+	}
 
 	for !shouldWrite(page, orderChannel) {
 
 	}
 
 	fileLock.Lock()
-	if rawResponse != "" {
+	if retry {
 		_, err := writer.WriteString(rawResponse)
 		if err != nil {
 			log.Fatalln(err)
@@ -103,11 +108,6 @@ func writeRequestToFile(baseURL string, filters map[string]string, page int, htt
 		if err != nil {
 			log.Fatalln(err)
 		}
-	}
-
-	err := writer.Flush()
-	if err != nil {
-		log.Fatalln(err)
 	}
 	fileLock.Unlock()
 	orderChannel <- page + 1
@@ -133,52 +133,30 @@ func getRequestURL(baseURL string, filters map[string]string) *url.URL {
 func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardResponseDTO, string) {
 	request, _ := http.NewRequest(http.MethodGet, url.String(), nil)
 
-	retry := true
-	retryCount := 0
+	resp, err := httpClient.Do(request)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer resp.Body.Close()
 
 	var parsedResponse CollegeScoreCardResponseDTO
 	rawResponse := ""
 
-	var resp *http.Response
-	var err error
-
-	//retry count at 10 seems to work to get around rate limiting
-	for retry && retryCount < 10 {
-
-		resp, err = httpClient.Do(request)
-		if err != nil {
-			log.Fatalln(err)
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			retryCount++
-
-			//spacing out the retry requests randomly because if two goroutines retry at the same time it might cause it to rate limit again
-			time.Sleep(time.Duration(200+rand.Int31n(300)) * time.Millisecond)
-		} else {
-			retry = false
-		}
-	}
-
 	if resp.StatusCode == http.StatusOK {
 
-		err := json.NewDecoder(resp.Body).Decode(&parsedResponse)
+		err = json.NewDecoder(resp.Body).Decode(&parsedResponse)
 		if err != nil {
 			log.Fatalln(err)
 		}
 
 	} else {
-    
+
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Fatal(err)
 		}
-		rawResponse = string(bodyBytes)
-	}
 
-	err = resp.Body.Close()
-	if err != nil {
-		log.Fatalln(err)
+		rawResponse = string(bodyBytes)
 	}
 
 	return parsedResponse, rawResponse

@@ -37,7 +37,7 @@ type CollegeScoreCardMetadataDTO struct {
 func (metadataDTO CollegeScoreCardMetadataDTO) TextOutput(sb *strings.Builder) {
 	sb.WriteString(fmt.Sprintf("\t%-30s %-10d\n", "Total Results:", metadataDTO.TotalResults))
 	sb.WriteString(fmt.Sprintf("\t%-30s %-10d\n", "Page Number:", metadataDTO.PageNumber))
-	sb.WriteString(fmt.Sprintf("\t%-30s %-10d\n", "Results Per Page:", metadataDTO.ResultsPerPage))
+	sb.WriteString(fmt.Sprintf("\t%-30s %-10d\n\n", "Results Per Page:", metadataDTO.ResultsPerPage))
 }
 
 // CollegeScoreCardFieldsDTO holds the required fields from college score card response
