@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -33,12 +34,14 @@ func main() {
 	}
 	writer := bufio.NewWriter(outFile)
 
-	response := makeRequest(baseURL, filters, httpClient)
+	requestURL := getRequestURL(baseURL, filters)
 
-	for (page * response.Metadata.ResultsPerPage) < (response.Metadata.TotalResults) {
+	response, _ := requestData(requestURL, httpClient)
+
+	for ((page + 1) * response.Metadata.ResultsPerPage) <= (response.Metadata.TotalResults) {
 		page++
 		filters["page"] = strconv.Itoa(page)
-		_, err = writer.WriteString(makeRequest(baseURL, filters, httpClient).TextOutput())
+		_, err = writer.WriteString(makeRequest(baseURL, filters, httpClient))
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -47,13 +50,17 @@ func main() {
 
 }
 
-func makeRequest(baseURL string, filters map[string]string, httpClient *http.Client) CollegeScoreCardResponseDTO {
+func makeRequest(baseURL string, filters map[string]string, httpClient *http.Client) string {
 
 	requestURL := getRequestURL(baseURL, filters)
 
-	response := requestData(requestURL, httpClient)
+	response, rawResponse := requestData(requestURL, httpClient)
 
-	return response
+	if rawResponse != "" {
+		return rawResponse
+	}
+
+	return response.TextOutput()
 }
 
 func getRequestURL(baseURL string, filters map[string]string) *url.URL {
@@ -71,7 +78,7 @@ func getRequestURL(baseURL string, filters map[string]string) *url.URL {
 	return requestURL
 }
 
-func requestData(url *url.URL, httpClient *http.Client) CollegeScoreCardResponseDTO {
+func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardResponseDTO, string) {
 	request, _ := http.NewRequest(http.MethodGet, url.String(), nil)
 
 	resp, err := httpClient.Do(request)
@@ -81,10 +88,20 @@ func requestData(url *url.URL, httpClient *http.Client) CollegeScoreCardResponse
 	defer resp.Body.Close()
 
 	var parsedResponse CollegeScoreCardResponseDTO
-	err = json.NewDecoder(resp.Body).Decode(&parsedResponse)
-	if err != nil {
-		log.Fatalln(err)
+	rawResponse := ""
+
+	if resp.StatusCode == http.StatusOK {
+		err = json.NewDecoder(resp.Body).Decode(&parsedResponse)
+		if err != nil {
+			log.Fatalln(err)
+		}
+	} else {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		rawResponse = string(bodyBytes)
 	}
 
-	return parsedResponse
+	return parsedResponse, rawResponse
 }
