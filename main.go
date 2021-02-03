@@ -48,7 +48,7 @@ func main() {
 	response := writeRequestToFile(baseURL, filters, page, httpClient, writer, &fileLock, orderChannel)
 
 	wg := sync.WaitGroup{}
-	for (page+1)*response.Metadata.ResultsPerPage < response.Metadata.TotalResults {
+	for (page+1)*response.Metadata.ResultsPerPage <= response.Metadata.TotalResults {
 		page++
 
 		wg.Add(1)
