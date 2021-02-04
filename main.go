@@ -33,6 +33,7 @@ func main() {
 		log.Fatalln(err)
 	}
 	writer := bufio.NewWriter(outFile)
+	defer writer.Flush()
 
 	requestURL := getRequestURL(baseURL, filters)
 
@@ -45,8 +46,8 @@ func main() {
 		if err != nil {
 			log.Fatalln(err)
 		}
-
 	}
+
 
 }
 
@@ -85,7 +86,6 @@ func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardRespons
 	if err != nil {
 		log.Fatalln(err)
 	}
-	defer resp.Body.Close()
 
 	var parsedResponse CollegeScoreCardResponseDTO
 	rawResponse := ""
@@ -101,6 +101,11 @@ func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardRespons
 			log.Fatal(err)
 		}
 		rawResponse = string(bodyBytes)
+	}
+
+	err = resp.Body.Close()
+	if err != nil {
+		log.Fatalln(err)
 	}
 
 	return parsedResponse, rawResponse
