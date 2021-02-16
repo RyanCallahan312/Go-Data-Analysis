@@ -175,19 +175,15 @@ func writeToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
 
 	metadata := data.Metadata
 	lastInsertID := 0
-	err = tx.QueryRow("INSERT INTO metadata VALUES (DEFAULT, $1, $2, $3) RETURNING metadata_id", metadata.TotalResults, metadata.PageNumber, metadata.ResultsPerPage).Scan(&lastInsertID)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	_ = tx.QueryRow("INSERT INTO metadata VALUES (DEFAULT, $1, $2, $3) RETURNING metadata_id", metadata.TotalResults, metadata.PageNumber, metadata.ResultsPerPage).Scan(&lastInsertID)
+
 	metadataID := lastInsertID
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	err = tx.QueryRow(`INSERT INTO request VALUES (DEFAULT, $1) RETURNING request_id`, metadataID).Scan(&lastInsertID)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	_ = tx.QueryRow(`INSERT INTO request VALUES (DEFAULT, $1) RETURNING request_id`, metadataID).Scan(&lastInsertID)
+
 	requestID := lastInsertID
 	if err != nil {
 		log.Fatalln(err)
