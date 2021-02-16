@@ -28,6 +28,9 @@ func main() {
 	}
 
 	conn, err := sql.Open("pgx", os.Getenv("CONNECTION_STRING"))
+	if err != nil {
+		log.Fatalln(err)
+	}
 	defer func() {
 		err := conn.Close()
 		if err != nil {
