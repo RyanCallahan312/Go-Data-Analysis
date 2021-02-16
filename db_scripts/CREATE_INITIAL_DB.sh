@@ -1,0 +1,2 @@
+psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'comp490project1'" | grep -q 1 || psql -U postgres -c "CREATE DATABASE comp490project1"
+psql -U postgres -c "CREATE USER root WITH PASSWORD 'toor'"
