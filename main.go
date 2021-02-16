@@ -35,36 +35,27 @@ func main() {
 	httpClient := &http.Client{}
 	baseURL := "https://api.data.gov/ed/collegescorecard/v1/schools.json"
 
-	filters := make(map[string]string)
+	filterBase := createFilterBase()
+
 	page := 0
 
-	//using this to get around rate limiting
-	filters["per_page"] = "100"
-
-	filters["school.degrees_awarded.predominant"] = "2,3"
-	filters["fields"] = "id,school.name,school.city,2018.student.size,2017.student.size,2017.earnings.3_yrs_after_completion.overall_count_over_poverty_line,2016.repayment.3_yr_repayment.overall"
-	filters["api_key"] = os.Getenv("API_KEY")
-
-	outFile, err := os.Create("./err.txt")
+	errFile, err := os.Create("./err.txt")
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	writer := bufio.NewWriter(outFile)
+	writer := bufio.NewWriter(errFile)
 	var fileLock sync.Mutex
 
-	orderChannel := make(chan int, 1)
-
 	// make first request to get how many pages we need to retrieve
-	requestURL := getRequestURL(baseURL, filters)
+	requestURL := getRequestURL(baseURL, filterBase)
 	response, rawResponse := requestData(requestURL, httpClient)
+
 	if rawResponse != "" {
 		writeToFile(rawResponse, writer, &fileLock)
 	} else {
 		writeToDb(response, conn)
 	}
-
-	orderChannel <- page + 1
 
 	wg := sync.WaitGroup{}
 	for (page+1)*response.Metadata.ResultsPerPage <= response.Metadata.TotalResults {
@@ -74,19 +65,14 @@ func main() {
 		go func(page int) {
 			defer wg.Done()
 
-			flt := make(map[string]string)
-			for k, v := range filters {
-				flt[k] = v
+			filters := make(map[string]string)
+			for k, v := range filterBase {
+				filters[k] = v
 			}
-			flt["page"] = strconv.Itoa(page)
+			filters["page"] = strconv.Itoa(page)
 
-			requestURL := getRequestURL(baseURL, flt)
-
+			requestURL := getRequestURL(baseURL, filters)
 			response, rawResponse := requestData(requestURL, httpClient)
-
-			for !shouldWrite(page, orderChannel) {
-
-			}
 
 			if rawResponse != "" {
 				writeToFile(rawResponse, writer, &fileLock)
@@ -94,13 +80,25 @@ func main() {
 				writeToDb(response, conn)
 			}
 
-			orderChannel <- page + 1
-
 		}(page)
 
 	}
 	wg.Wait()
 
+}
+
+func createFilterBase() map[string]string {
+
+	filters := make(map[string]string)
+
+	//using this to get around rate limiting
+	filters["per_page"] = "100"
+
+	filters["school.degrees_awarded.predominant"] = "2,3"
+	filters["fields"] = "id,school.name,school.city,2018.student.size,2017.student.size,2017.earnings.3_yrs_after_completion.overall_count_over_poverty_line,2016.repayment.3_yr_repayment.overall"
+	filters["api_key"] = os.Getenv("API_KEY")
+
+	return filters
 }
 
 func initalizeTables(conn *sql.DB) {
