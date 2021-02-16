@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"database/sql"
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -13,14 +14,23 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/jackc/pgx/v4"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/joho/godotenv"
 )
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	conn, err := sql.Open("pgx", os.Getenv("CONNECTION_STRING"))
+	defer conn.Close()
+
+	initalizeTables(conn)
 
 	httpClient := &http.Client{}
 	baseURL := "https://api.data.gov/ed/collegescorecard/v1/schools.json"
@@ -29,13 +39,13 @@ func main() {
 	page := 0
 
 	//using this to get around rate limiting
-	filters["per_page"] = "70"
+	filters["per_page"] = "100"
 
 	filters["school.degrees_awarded.predominant"] = "2,3"
 	filters["fields"] = "id,school.name,school.city,2018.student.size,2017.student.size,2017.earnings.3_yrs_after_completion.overall_count_over_poverty_line,2016.repayment.3_yr_repayment.overall"
 	filters["api_key"] = os.Getenv("API_KEY")
 
-	outFile, err := os.Create("./out.txt")
+	outFile, err := os.Create("./err.txt")
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -44,8 +54,17 @@ func main() {
 	var fileLock sync.Mutex
 
 	orderChannel := make(chan int, 1)
-	orderChannel <- 0
-	response := writeRequestToFile(baseURL, filters, page, httpClient, writer, &fileLock, orderChannel)
+
+	// make first request to get how many pages we need to retrieve
+	requestURL := getRequestURL(baseURL, filters)
+	response, rawResponse := requestData(requestURL, httpClient)
+	if rawResponse != "" {
+		writeToFile(rawResponse, writer, &fileLock)
+	} else {
+		writeToDb(response, conn)
+	}
+
+	orderChannel <- page + 1
 
 	wg := sync.WaitGroup{}
 	for (page+1)*response.Metadata.ResultsPerPage <= response.Metadata.TotalResults {
@@ -61,15 +80,115 @@ func main() {
 			}
 			flt["page"] = strconv.Itoa(page)
 
-			_ = writeRequestToFile(baseURL, flt, page, httpClient, writer, &fileLock, orderChannel)
+			requestURL := getRequestURL(baseURL, flt)
+
+			response, rawResponse := requestData(requestURL, httpClient)
+
+			for !shouldWrite(page, orderChannel) {
+
+			}
+
+			if rawResponse != "" {
+				writeToFile(rawResponse, writer, &fileLock)
+			} else {
+				writeToDb(response, conn)
+			}
+
+			orderChannel <- page + 1
 
 		}(page)
 
 	}
 	wg.Wait()
 
-	wg.Wait()
+}
 
+func initalizeTables(conn *sql.DB) {
+	tx, err := conn.Begin()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS metadata (
+		metadata_id INTEGER UNIQUE GENERATED ALWAYS AS IDENTITY, 
+		total_results INTEGER, 
+		page_number INTEGER, 
+		per_page INTEGER)`)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS request (
+		request_id INTEGER UNIQUE GENERATED ALWAYS AS IDENTITY, 
+		metadata_id INTEGER,
+		CONSTRAINT fk_request_data
+			FOREIGN KEY(metadata_id)
+			REFERENCES metadata(metadata_id))`)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS request_data (
+		request_data_id INTEGER UNIQUE GENERATED ALWAYS AS IDENTITY,
+		request_id INTEGER,
+		data_id INTEGER,
+		school_name VARCHAR(512), 
+		school_city VARCHAR(512), 
+		student_size_2018 INTEGER, 
+		student_size_2017 INTEGER, 
+		over_poverty_three_years_after_completetion_2017 INTEGER, 
+		three_year_repayment_overall_2016 INTEGER,
+		CONSTRAINT fk_request_data
+			FOREIGN KEY(request_id)
+			REFERENCES request(request_id))`)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	tx.Commit()
+}
+
+func writeToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
+	tx, err := conn.Begin()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	// Rollback is safe to call even if the tx is already closed, so if
+	// the tx commits successfully, this is a no-op
+	defer tx.Rollback()
+
+	metadata := data.Metadata
+	lastInsertID := 0
+	err = tx.QueryRow("INSERT INTO metadata VALUES (DEFAULT, $1, $2, $3) RETURNING metadata_id", metadata.TotalResults, metadata.PageNumber, metadata.ResultsPerPage).Scan(&lastInsertID)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	metadataID := lastInsertID
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	err = tx.QueryRow(`INSERT INTO request VALUES (DEFAULT, $1) RETURNING request_id`, metadataID).Scan(&lastInsertID)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	requestID := lastInsertID
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	results := data.Results
+	for _, requestData := range results {
+		_, err = tx.Exec("INSERT INTO request_data VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8)", requestID, requestData.ID, requestData.SchoolName, requestData.SchoolCity, requestData.StudentSize2018, requestData.StudentSize2017, requestData.StudentsOverPovertyLineThreeYearsAfterCompletion2017, requestData.ThreeYearRepaymentOverall2016)
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
 func shouldWrite(requestNumber int, ch chan int) bool {
@@ -78,41 +197,22 @@ func shouldWrite(requestNumber int, ch chan int) bool {
 	if requestNumber != message {
 		ch <- message
 	}
-
 	return requestNumber == message
 }
 
-func writeRequestToFile(baseURL string, filters map[string]string, page int, httpClient *http.Client, writer *bufio.Writer, fileLock *sync.Mutex, orderChannel chan int) CollegeScoreCardResponseDTO {
-	requestURL := getRequestURL(baseURL, filters)
-
-	response, rawResponse := requestData(requestURL, httpClient)
-
-	for !shouldWrite(page, orderChannel) {
-
-	}
+func writeToFile(data string, writer *bufio.Writer, fileLock *sync.Mutex) {
 
 	fileLock.Lock()
-	if rawResponse != "" {
-		_, err := writer.WriteString(rawResponse)
-		if err != nil {
-			log.Fatalln(err)
-		}
-
-	} else {
-		_, err := writer.WriteString(response.TextOutput())
-		if err != nil {
-			log.Fatalln(err)
-		}
+	_, err := writer.WriteString(data)
+	if err != nil {
+		log.Fatalln(err)
 	}
 
-	err := writer.Flush()
+	err = writer.Flush()
 	if err != nil {
 		log.Fatalln(err)
 	}
 	fileLock.Unlock()
-	orderChannel <- page + 1
-
-	return response
 }
 
 func getRequestURL(baseURL string, filters map[string]string) *url.URL {
@@ -168,7 +268,7 @@ func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardRespons
 		}
 
 	} else {
-    
+
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Fatal(err)
