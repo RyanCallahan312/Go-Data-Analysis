@@ -28,7 +28,12 @@ func main() {
 	}
 
 	conn, err := sql.Open("pgx", os.Getenv("CONNECTION_STRING"))
-	defer conn.Close()
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}()
 
 	initalizeTables(conn)
 
@@ -107,6 +112,13 @@ func initalizeTables(conn *sql.DB) {
 		log.Fatalln(err)
 	}
 
+	defer func() {
+		err := tx.Rollback()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}()
+
 	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS metadata (
 		metadata_id INTEGER UNIQUE GENERATED ALWAYS AS IDENTITY, 
 		total_results INTEGER, 
@@ -143,7 +155,10 @@ func initalizeTables(conn *sql.DB) {
 		log.Fatalln(err)
 	}
 
-	tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
 func writeToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
@@ -151,9 +166,12 @@ func writeToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	// Rollback is safe to call even if the tx is already closed, so if
-	// the tx commits successfully, this is a no-op
-	defer tx.Rollback()
+	defer func() {
+		err := tx.Rollback()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}()
 
 	metadata := data.Metadata
 	lastInsertID := 0
@@ -187,15 +205,6 @@ func writeToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-}
-
-func shouldWrite(requestNumber int, ch chan int) bool {
-	message := <-ch
-
-	if requestNumber != message {
-		ch <- message
-	}
-	return requestNumber == message
 }
 
 func writeToFile(data string, writer *bufio.Writer, fileLock *sync.Mutex) {
