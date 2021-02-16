@@ -20,7 +20,3 @@ jobs:
 
     - name: Test
       run: go test -v ./...
-
-    - uses: golangci/golangci-lint-action@v2
-      with:
-        version: v1.29
