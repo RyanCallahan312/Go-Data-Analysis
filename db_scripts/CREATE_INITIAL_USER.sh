@@ -1,0 +1,1 @@
+psql -U postgres -c "CREATE USER root WITH PASSWORD 'toor'; ALTER USER root CREATEDB;"
