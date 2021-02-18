@@ -161,7 +161,11 @@ func TestWriteToDb(t *testing.T) {
 		}
 
 		for dataRows.Next() {
-			dataRows.StructScan(&result)
+			err = dataRows.StructScan(&result)
+			if err != nil {
+				log.Fatalln(err)
+			}
+
 			results = append(results, result)
 		}
 
