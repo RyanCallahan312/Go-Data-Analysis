@@ -14,10 +14,13 @@ import (
 )
 
 func TestRequestData(t *testing.T) {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalln(err)
+	if _, err := os.Stat("./.env"); err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
+
 	httpClient := &http.Client{}
 	baseURL := "https://api.data.gov/ed/collegescorecard/v1/schools.json"
 
@@ -78,9 +81,11 @@ func TestRequestData(t *testing.T) {
 }
 
 func TestWriteToDb(t *testing.T) {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalln(err)
+	if _, err := os.Stat("./.env"); err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 
 	conn, err := sql.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))

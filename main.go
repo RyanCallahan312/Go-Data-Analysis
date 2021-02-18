@@ -22,9 +22,11 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalln(err)
+	if _, err := os.Stat("./.env"); err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 
 	initalizeDB()
