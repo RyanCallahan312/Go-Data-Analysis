@@ -127,6 +127,10 @@ func TestWriteToDb(t *testing.T) {
 	}
 
 	conn, err = sql.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	_, err = conn.Exec(`DROP DATABASE comp490project1test`)
 	if err != nil {
 		log.Fatalln(err)
