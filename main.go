@@ -22,12 +22,16 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalln(err)
+	if _, err := os.Stat("./.env"); err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 
-	conn, err := sql.Open("pgx", os.Getenv("CONNECTION_STRING"))
+	initalizeDB()
+	conn, err := sql.Open("pgx", os.Getenv("WORKING_CONNECTION_STRING"))
+
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -109,6 +113,35 @@ func createFilterBase() map[string]string {
 	return filters
 }
 
+func initalizeDB() {
+	conn, err := sql.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	defer func() {
+
+		err := conn.Close()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}()
+
+	var dbExists bool
+	_ = conn.QueryRow(`SELECT EXISTS (
+			SELECT FROM pg_database 
+			WHERE datname = 'comp490project1'
+			)`).Scan(&dbExists)
+
+	if !dbExists {
+		_, err = conn.Exec(`CREATE DATABASE comp490project1`)
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+
+}
+
 func initalizeTables(conn *sql.DB) {
 	tx, err := conn.Begin()
 	if err != nil {
@@ -116,7 +149,14 @@ func initalizeTables(conn *sql.DB) {
 	}
 
 	defer func() {
-		err := tx.Rollback()
+		if err != nil {
+			err = tx.Rollback()
+			if err != nil {
+				log.Fatalln(err)
+			}
+			return
+		}
+		err = tx.Commit()
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -127,6 +167,7 @@ func initalizeTables(conn *sql.DB) {
 		total_results INTEGER, 
 		page_number INTEGER, 
 		per_page INTEGER)`)
+
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -157,11 +198,6 @@ func initalizeTables(conn *sql.DB) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	err = tx.Commit()
-	if err != nil {
-		log.Fatalln(err)
-	}
 }
 
 func writeToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
@@ -169,8 +205,16 @@ func writeToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
 	defer func() {
-		err := tx.Rollback()
+		if err != nil {
+			err = tx.Rollback()
+			if err != nil {
+				log.Fatalln(err)
+			}
+			return
+		}
+		err = tx.Commit()
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -198,11 +242,6 @@ func writeToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
 		if err != nil {
 			log.Fatalln(err)
 		}
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		log.Fatalln(err)
 	}
 }
 
