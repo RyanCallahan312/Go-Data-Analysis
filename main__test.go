@@ -6,10 +6,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
 	"sync"
 	"testing"
-
+  
+	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 )
 
@@ -70,9 +72,7 @@ func TestRequestData(t *testing.T) {
 	totalData := 0
 	for _, val := range responses {
 		totalData += len(val.Results)
-		fmt.Println(len(val.Results))
-	}
-	fmt.Println(len(responses))
+  }
 
 	if totalData < 1000 {
 		t.Errorf("Did not retreive enough data; got %d", totalData)
@@ -118,13 +118,64 @@ func TestWriteToDb(t *testing.T) {
 
 	initalizeTables(conn)
 
-	response := CollegeScoreCardResponseDTO{
+	testResponse := CollegeScoreCardResponseDTO{
 		CollegeScoreCardMetadataDTO{10, 11, 12},
 		[]CollegeScoreCardFieldsDTO{
 			{1, "bsu", "bridgew", 1, 2, 3, 4},
 			{2, "bsu", "bridgew", 1, 2, 3, 4}}}
 
-	writeToDb(response, conn)
+	writeToDb(testResponse, conn)
+
+	idRows, err := conn.Query(`SELECT DISTINCT request_id FROM request`)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	sqlxConn, err := sqlx.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	scoreCards := make([]CollegeScoreCardResponseDTO, 0)
+	for idRows.Next() {
+		var requestDataID int
+		err := idRows.Scan(&requestDataID)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		fmt.Println(requestDataID)
+
+		var metadata CollegeScoreCardMetadataDTO
+		metadataRow := sqlxConn.QueryRowx(`SELECT total_results, page_number, per_page FROM metadata WHERE metadata_id = $1`, requestDataID)
+
+		err = metadataRow.StructScan(&metadata)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		results := make([]CollegeScoreCardFieldsDTO, 0)
+		var result CollegeScoreCardFieldsDTO
+		dataRows, err := sqlxConn.Queryx(`SELECT data_id, school_name, school_name, school_city, student_size_2018, student_size_2017, over_poverty_three_years_after_completetion_2017, three_year_repayment_overall_2016 FROM request_data WHERE request_id = $1`, requestDataID)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		for dataRows.Next() {
+			err = dataRows.StructScan(&result)
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			results = append(results, result)
+		}
+
+		scoreCards = append(scoreCards, CollegeScoreCardResponseDTO{metadata, results})
+
+	}
+	err = sqlxConn.Close()
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	err = conn.Close()
 	if err != nil {
@@ -144,5 +195,8 @@ func TestWriteToDb(t *testing.T) {
 	err = conn.Close()
 	if err != nil {
 		log.Fatalln(err)
+	}
+	if !reflect.DeepEqual(scoreCards[0], testResponse) {
+		t.Errorf("Inserted data does not equal queried data")
 	}
 }
