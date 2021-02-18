@@ -1,14 +1,16 @@
 package main
 
 import (
-	"Project1/vendor/github.com/joho/godotenv"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"sync"
 	"testing"
+
+	"github.com/joho/godotenv"
 )
 
 func TestRequestData(t *testing.T) {
@@ -30,8 +32,9 @@ func TestRequestData(t *testing.T) {
 		t.Errorf("Response != 200")
 	}
 
-	var responses []CollegeScoreCardResponseDTO
+	responses := make([]CollegeScoreCardResponseDTO, 0)
 	responses = append(responses, response)
+	sliceLock := &sync.Mutex{}
 
 	wg := sync.WaitGroup{}
 	for (page+1)*response.Metadata.ResultsPerPage <= response.Metadata.TotalResults {
@@ -52,9 +55,9 @@ func TestRequestData(t *testing.T) {
 			if rawResponse != "" {
 				t.Errorf("Response != 200")
 			}
-
-			var responses []CollegeScoreCardResponseDTO
+			sliceLock.Lock()
 			responses = append(responses, response)
+			sliceLock.Unlock()
 
 		}(page)
 
@@ -62,12 +65,14 @@ func TestRequestData(t *testing.T) {
 	wg.Wait()
 
 	totalData := 0
-	for _, response := range responses {
-		totalData += len(response.Results)
+	for _, val := range responses {
+		totalData += len(val.Results)
+		fmt.Println(len(val.Results))
 	}
+	fmt.Println(len(responses))
 
 	if totalData < 1000 {
-		t.Errorf("Did not retreive enough data")
+		t.Errorf("Did not retreive enough data; got %d", totalData)
 	}
 
 }
@@ -86,11 +91,11 @@ func TestWriteToDb(t *testing.T) {
 	var dbExists bool
 	_ = conn.QueryRow(`SELECT EXISTS (
 			SELECT FROM pg_database 
-			WHERE datname = 'comp490project1TEST'
+			WHERE datname = 'comp490project1test'
 			)`).Scan(&dbExists)
 
 	if !dbExists {
-		_, err = conn.Exec(`CREATE DATABASE comp490project1TEST`)
+		_, err = conn.Exec(`CREATE DATABASE comp490project1test`)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -101,17 +106,34 @@ func TestWriteToDb(t *testing.T) {
 		log.Fatalln(err)
 	}
 
-	conn, err = sql.Open("pgx", os.Getenv("WORKING_CONNECTION_STRING_TEST"))
+	conn, err = sql.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatalln(err)
 	}
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			log.Fatalln(err)
-		}
-	}()
+
 	initalizeTables(conn)
-	response := CollegeScoreCardResponseDTO{CollegeScoreCardMetadataDTO{10, 11, 12}, []CollegeScoreCardFieldsDTO{{1, "bsu", "bridgew", 1, 2, 3, 4}, {2, "bsu", "bridgew", 1, 2, 3, 4}}}
+
+	response := CollegeScoreCardResponseDTO{
+		CollegeScoreCardMetadataDTO{10, 11, 12},
+		[]CollegeScoreCardFieldsDTO{
+			{1, "bsu", "bridgew", 1, 2, 3, 4},
+			{2, "bsu", "bridgew", 1, 2, 3, 4}}}
+
 	writeToDb(response, conn)
+
+	err = conn.Close()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	conn, err = sql.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
+	_, err = conn.Exec(`DROP DATABASE comp490project1test`)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	err = conn.Close()
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
