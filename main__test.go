@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-
+  
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 )
@@ -72,7 +72,7 @@ func TestRequestData(t *testing.T) {
 	totalData := 0
 	for _, val := range responses {
 		totalData += len(val.Results)
-	}
+  }
 
 	if totalData < 1000 {
 		t.Errorf("Did not retreive enough data; got %d", totalData)
@@ -196,7 +196,6 @@ func TestWriteToDb(t *testing.T) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-
 	if !reflect.DeepEqual(scoreCards[0], testResponse) {
 		t.Errorf("Inserted data does not equal queried data")
 	}
