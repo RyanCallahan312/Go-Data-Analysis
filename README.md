@@ -4,7 +4,6 @@ This branch uses goroutines to request data asynchronously and can cause rate li
 This assumes that Go 1.15 or later and PostgreSQL 13.0 or later are already installed. If they are not installed you should do that first following these guides:
 - Install Go: https://golang.org/doc/install
 - Install PostgreSQL: https://www.postgresql.org/download/
-
 To install dependencies without using $GOROOT, in the top level directory, run:
 ```
 go mod vendor

@@ -29,6 +29,7 @@ func main() {
 
 	initalizeDB()
 	conn, err := sql.Open("pgx", os.Getenv("WORKING_CONNECTION_STRING"))
+  
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -38,6 +39,7 @@ func main() {
 			log.Fatalln(err)
 		}
 	}()
+  
 	initalizeTables(conn)
 
 	httpClient := &http.Client{}
@@ -160,6 +162,7 @@ func initalizeTables(conn *sql.DB) {
 		total_results INTEGER, 
 		page_number INTEGER, 
 		per_page INTEGER)`)
+  
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -197,7 +200,7 @@ func writeToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-
+  
 	defer func() {
 		if err != nil {
 			tx.Rollback()
