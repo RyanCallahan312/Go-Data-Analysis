@@ -15,6 +15,57 @@ import (
 	"github.com/joho/godotenv"
 )
 
+func TestGetSheetData(t *testing.T) {
+	if _, err := os.Stat("./.env"); err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+
+	conn := buildTestDB()
+
+	getSheetData(conn)
+
+	var stateCount int
+	err := conn.QueryRow(`SELECT COUNT(DISTINCT state) FROM state_employment_data;`).Scan(&stateCount)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	if stateCount != 50 {
+		t.Errorf("Expected 50 states; Got %d", stateCount)
+	}
+
+	tearTestDownDB(conn)
+}
+
+func TestGetJobDataDTOs(t *testing.T) {
+	rows := getSheetRows("MajorAndOccCodeTest.xlsx", "Sheet1")
+	jobDataDTOs := getJobDataDTOs(rows)
+
+	if len(jobDataDTOs) != 4 {
+		t.Errorf("Expected 4 rows; Got %d", len(jobDataDTOs))
+	}
+
+}
+
+func TestGetJobDataDTO(t *testing.T) {
+	row := []string{"01", "Alabama", "2", "000000", "Cross-industry", "cross-industry", "1235", "11-0000", "Management Occupations", "major", "83760", "1.2", "42.428", "0.77", "", "51.86", "107860", "0.6", "22.72", "31.80", "45.03", "63.07", "90.16", "47250", "66140", "93660", "131180", "187530"}
+
+	jobDataDTO := getJobDataDTO(row)
+
+	if !(jobDataDTO.State == "Alabama" &&
+		jobDataDTO.OccupationMajorTitle == "Management Occupations" &&
+		jobDataDTO.TotalEmployment == 83760 &&
+		jobDataDTO.PercentileSalary25thHourly == 31.799999 &&
+		jobDataDTO.PercentileSalary25thAnnual == 66140 &&
+		jobDataDTO.OccupationCode == "11-0000") {
+		t.Errorf("Mismatch Data: \n%s", jobDataDTO.TextOutput())
+	}
+
+}
+
 func TestRequestData(t *testing.T) {
 	if _, err := os.Stat("./.env"); err == nil {
 		err := godotenv.Load()
@@ -88,35 +139,7 @@ func TestWriteToDb(t *testing.T) {
 		}
 	}
 
-	conn, err := sql.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	var dbExists bool
-	_ = conn.QueryRow(`SELECT EXISTS (
-			SELECT FROM pg_database 
-			WHERE datname = 'comp490project1test'
-			)`).Scan(&dbExists)
-
-	if !dbExists {
-		_, err = conn.Exec(`CREATE DATABASE comp490project1test`)
-		if err != nil {
-			log.Fatalln(err)
-		}
-	}
-
-	err = conn.Close()
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	conn, err = sql.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	initalizeTables(conn)
+	conn := buildTestDB()
 
 	testResponse := CollegeScoreCardResponseDTO{
 		CollegeScoreCardMetadataDTO{10, 11, 12},
@@ -177,7 +200,49 @@ func TestWriteToDb(t *testing.T) {
 		log.Fatalln(err)
 	}
 
+	tearTestDownDB(conn)
+	if !reflect.DeepEqual(scoreCards[0], testResponse) {
+		t.Errorf("Inserted data does not equal queried data")
+	}
+}
+
+func buildTestDB() *sql.DB {
+	conn, err := sql.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var dbExists bool
+	_ = conn.QueryRow(`SELECT EXISTS (
+			SELECT FROM pg_database 
+			WHERE datname = 'comp490project1test'
+			)`).Scan(&dbExists)
+
+	if !dbExists {
+		_, err = conn.Exec(`CREATE DATABASE comp490project1test`)
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+
 	err = conn.Close()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	conn, err = sql.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	initalizeTables(conn)
+
+	return conn
+}
+
+func tearTestDownDB(conn *sql.DB) {
+
+	err := conn.Close()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -195,8 +260,5 @@ func TestWriteToDb(t *testing.T) {
 	err = conn.Close()
 	if err != nil {
 		log.Fatalln(err)
-	}
-	if !reflect.DeepEqual(scoreCards[0], testResponse) {
-		t.Errorf("Inserted data does not equal queried data")
 	}
 }
