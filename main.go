@@ -51,19 +51,19 @@ func main() {
 	}
 	errWriter := bufio.NewWriter(errFile)
 
-	outFile, err := os.Create("./out.txt")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	outWriter := bufio.NewWriter(outFile)
+	// outFile, err := os.Create("./out.txt")
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+	// outWriter := bufio.NewWriter(outFile)
 
 	getAPIData(conn, errWriter)
 
-	getSheetData(conn, outWriter)
+	getSheetData(conn)
 
 }
 
-func getSheetData(conn *sql.DB, writer *bufio.Writer) {
+func getSheetData(conn *sql.DB) {
 
 	sheet, err := excelize.OpenFile("state_M2019_dl.xlsx")
 	if err != nil {
@@ -101,18 +101,42 @@ func getSheetData(conn *sql.DB, writer *bufio.Writer) {
 				PercentileSalary25thAnual:  int(percentileSalary25thAnual),
 				OccupationCode:             row[7],
 			}
-
-			_, err = writer.WriteString(jobDataDTO.TextOutput())
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			err = writer.Flush()
-			if err != nil {
-				log.Fatalln(err)
-			}
+			writeJobDataToDb(jobDataDTO, conn)
 		}
 	}
+}
+
+func writeJobDataToDb(data JobDataDTO, conn *sql.DB) {
+	tx, err := conn.Begin()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	defer func() {
+		if err != nil {
+			err = tx.Rollback()
+			if err != nil {
+				log.Fatalln(err)
+			}
+			return
+		}
+		err = tx.Commit()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}()
+
+	_, err = tx.Exec(`INSERT INTO state_employment_data VALUES(DEFAULT, $1, $2, $3, $4, $5, $6)`,
+		data.State,
+		data.OccupationMajorTitle,
+		data.TotalEmployment,
+		data.PercentileSalary25thHourly,
+		data.PercentileSalary25thAnual,
+		data.OccupationCode)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 }
 
 func getAPIData(conn *sql.DB, writer *bufio.Writer) {
@@ -133,7 +157,7 @@ func getAPIData(conn *sql.DB, writer *bufio.Writer) {
 	if rawResponse != "" {
 		writeToFile(rawResponse, writer, &fileLock)
 	} else {
-		writeToDb(response, conn)
+		writeCollegeScoreCardDataToDb(response, conn)
 	}
 
 	wg := sync.WaitGroup{}
@@ -156,7 +180,7 @@ func getAPIData(conn *sql.DB, writer *bufio.Writer) {
 			if rawResponse != "" {
 				writeToFile(rawResponse, writer, &fileLock)
 			} else {
-				writeToDb(response, conn)
+				writeCollegeScoreCardDataToDb(response, conn)
 			}
 
 		}(page)
@@ -279,7 +303,7 @@ func initalizeTables(conn *sql.DB) {
 	}
 }
 
-func writeToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
+func writeCollegeScoreCardDataToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
 	tx, err := conn.Begin()
 	if err != nil {
 		log.Fatalln(err)
