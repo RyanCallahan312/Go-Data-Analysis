@@ -10,7 +10,7 @@ type JobDataDTO struct {
 	OccupationMajorTitle       string
 	TotalEmployment            int
 	PercentileSalary25thHourly float32
-	PercentileSalary25thAnual  int
+	PercentileSalary25thAnnual int
 	OccupationCode             string
 }
 
@@ -21,6 +21,6 @@ func (jobDataDto JobDataDTO) TextOutput() string {
 		jobDataDto.OccupationMajorTitle,
 		jobDataDto.TotalEmployment,
 		jobDataDto.PercentileSalary25thHourly,
-		jobDataDto.PercentileSalary25thAnual,
+		jobDataDto.PercentileSalary25thAnnual,
 		jobDataDto.OccupationCode)
 }
