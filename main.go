@@ -125,7 +125,6 @@ func writeJobDataToDb(data JobDataDTO, conn *sql.DB) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-
 	defer func() {
 		if err != nil {
 			err = tx.Rollback()
