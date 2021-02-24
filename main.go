@@ -51,12 +51,6 @@ func main() {
 	}
 	errWriter := bufio.NewWriter(errFile)
 
-	// outFile, err := os.Create("./out.txt")
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// outWriter := bufio.NewWriter(outFile)
-
 	getAPIData(conn, errWriter)
 
 	getSheetData(conn)
@@ -64,46 +58,66 @@ func main() {
 }
 
 func getSheetData(conn *sql.DB) {
-
-	sheet, err := excelize.OpenFile("state_M2019_dl.xlsx")
-	if err != nil {
-		log.Fatalln(err)
+	rows := getSheetRows("state_M2019_dl.xlsx", "State_M2019_dl")
+	jobDataDTOs := getJobDataDTOs(rows)
+	for _, jobDataDTO := range jobDataDTOs {
+		writeJobDataToDb(jobDataDTO, conn)
 	}
+}
 
-	rows, err := sheet.GetRows("State_M2019_dl")
-	if err != nil {
-		log.Fatalln(err)
-	}
+func getJobDataDTOs(rows [][]string) []JobDataDTO {
 
-	var jobDataDTO JobDataDTO
+	jobDataDTOs := make([]JobDataDTO, 0)
 	for _, row := range rows {
-		if row[9] == "major" {
-			totalEmployemnt, err := strconv.ParseInt(row[10], 10, 32)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			percentileSalary25thHourly, err := strconv.ParseFloat(row[19], 32)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			percentileSalary25thAnual, err := strconv.ParseInt(row[24], 10, 32)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			jobDataDTO = JobDataDTO{
-				State:                      row[1],
-				OccupationMajorTitle:       row[8],
-				TotalEmployment:            int(totalEmployemnt),
-				PercentileSalary25thHourly: float32(percentileSalary25thHourly),
-				PercentileSalary25thAnual:  int(percentileSalary25thAnual),
-				OccupationCode:             row[7],
-			}
-			writeJobDataToDb(jobDataDTO, conn)
+		if row[9] == "major" && row[2] == "2" && row[1] != "District of Columbia" {
+			jobDataDTOs = append(jobDataDTOs, getJobDataDTO(row))
 		}
 	}
+
+	return jobDataDTOs
+}
+
+func getSheetRows(fileName string, sheetName string) [][]string {
+	sheet, err := excelize.OpenFile(fileName)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	rows, err := sheet.GetRows(sheetName)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	return rows
+}
+
+func getJobDataDTO(row []string) JobDataDTO {
+	totalEmployemnt, err := strconv.ParseInt(row[10], 10, 32)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	percentileSalary25thHourly, err := strconv.ParseFloat(row[19], 32)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	percentileSalary25thAnnual, err := strconv.ParseInt(row[24], 10, 32)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	jobDataDTO := JobDataDTO{
+		State:                      row[1],
+		OccupationMajorTitle:       row[8],
+		TotalEmployment:            int(totalEmployemnt),
+		PercentileSalary25thHourly: float32(percentileSalary25thHourly),
+		PercentileSalary25thAnnual: int(percentileSalary25thAnnual),
+		OccupationCode:             row[7],
+	}
+
+	return jobDataDTO
+
 }
 
 func writeJobDataToDb(data JobDataDTO, conn *sql.DB) {
@@ -111,7 +125,6 @@ func writeJobDataToDb(data JobDataDTO, conn *sql.DB) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-
 	defer func() {
 		if err != nil {
 			err = tx.Rollback()
@@ -131,7 +144,7 @@ func writeJobDataToDb(data JobDataDTO, conn *sql.DB) {
 		data.OccupationMajorTitle,
 		data.TotalEmployment,
 		data.PercentileSalary25thHourly,
-		data.PercentileSalary25thAnual,
+		data.PercentileSalary25thAnnual,
 		data.OccupationCode)
 	if err != nil {
 		log.Fatalln(err)
