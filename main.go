@@ -198,6 +198,18 @@ func initalizeTables(conn *sql.DB) {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS state_employment_data (
+		state_employment_data_id INTEGER UNIQUE GENERATED ALWAYS AS IDENTITY,
+		state VARCHAR(512),
+		occupation_major_title VARCHAR(512),
+		total_employment INTEGER, 
+		percentile_salary_25th VARCHAR(512),
+		occupation_code VARCHAR(512))`)
+
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
 func writeToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
