@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-  
+
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 )
@@ -72,7 +72,7 @@ func TestRequestData(t *testing.T) {
 	totalData := 0
 	for _, val := range responses {
 		totalData += len(val.Results)
-  }
+	}
 
 	if totalData < 1000 {
 		t.Errorf("Did not retreive enough data; got %d", totalData)
@@ -124,7 +124,7 @@ func TestWriteToDb(t *testing.T) {
 			{1, "bsu", "bridgew", 1, 2, 3, 4},
 			{2, "bsu", "bridgew", 1, 2, 3, 4}}}
 
-	writeToDb(testResponse, conn)
+	writeCollegeScoreCardDataToDb(testResponse, conn)
 
 	idRows, err := conn.Query(`SELECT DISTINCT request_id FROM request`)
 	if err != nil {

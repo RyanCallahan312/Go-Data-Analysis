@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	_ "github.com/jackc/pgx/v4"
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/joho/godotenv"
@@ -44,6 +45,102 @@ func main() {
 
 	initalizeTables(conn)
 
+	errFile, err := os.Create("./err.txt")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	errWriter := bufio.NewWriter(errFile)
+
+	// outFile, err := os.Create("./out.txt")
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+	// outWriter := bufio.NewWriter(outFile)
+
+	getAPIData(conn, errWriter)
+
+	getSheetData(conn)
+
+}
+
+func getSheetData(conn *sql.DB) {
+
+	sheet, err := excelize.OpenFile("state_M2019_dl.xlsx")
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	rows, err := sheet.GetRows("State_M2019_dl")
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var jobDataDTO JobDataDTO
+	for _, row := range rows {
+		if row[9] == "major" {
+			totalEmployemnt, err := strconv.ParseInt(row[10], 10, 32)
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			percentileSalary25thHourly, err := strconv.ParseFloat(row[19], 32)
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			percentileSalary25thAnual, err := strconv.ParseInt(row[24], 10, 32)
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			jobDataDTO = JobDataDTO{
+				State:                      row[1],
+				OccupationMajorTitle:       row[8],
+				TotalEmployment:            int(totalEmployemnt),
+				PercentileSalary25thHourly: float32(percentileSalary25thHourly),
+				PercentileSalary25thAnual:  int(percentileSalary25thAnual),
+				OccupationCode:             row[7],
+			}
+			writeJobDataToDb(jobDataDTO, conn)
+		}
+	}
+}
+
+func writeJobDataToDb(data JobDataDTO, conn *sql.DB) {
+	tx, err := conn.Begin()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	defer func() {
+		if err != nil {
+			err = tx.Rollback()
+			if err != nil {
+				log.Fatalln(err)
+			}
+			return
+		}
+		err = tx.Commit()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}()
+
+	_, err = tx.Exec(`INSERT INTO state_employment_data VALUES(DEFAULT, $1, $2, $3, $4, $5, $6)`,
+		data.State,
+		data.OccupationMajorTitle,
+		data.TotalEmployment,
+		data.PercentileSalary25thHourly,
+		data.PercentileSalary25thAnual,
+		data.OccupationCode)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+}
+
+func getAPIData(conn *sql.DB, writer *bufio.Writer) {
+
 	httpClient := &http.Client{}
 	baseURL := "https://api.data.gov/ed/collegescorecard/v1/schools.json"
 
@@ -51,12 +148,6 @@ func main() {
 
 	page := 0
 
-	errFile, err := os.Create("./err.txt")
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	writer := bufio.NewWriter(errFile)
 	var fileLock sync.Mutex
 
 	// make first request to get how many pages we need to retrieve
@@ -66,7 +157,7 @@ func main() {
 	if rawResponse != "" {
 		writeToFile(rawResponse, writer, &fileLock)
 	} else {
-		writeToDb(response, conn)
+		writeCollegeScoreCardDataToDb(response, conn)
 	}
 
 	wg := sync.WaitGroup{}
@@ -89,14 +180,13 @@ func main() {
 			if rawResponse != "" {
 				writeToFile(rawResponse, writer, &fileLock)
 			} else {
-				writeToDb(response, conn)
+				writeCollegeScoreCardDataToDb(response, conn)
 			}
 
 		}(page)
 
 	}
 	wg.Wait()
-
 }
 
 func createFilterBase() map[string]string {
@@ -198,9 +288,22 @@ func initalizeTables(conn *sql.DB) {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS state_employment_data (
+		state_employment_data_id INTEGER UNIQUE GENERATED ALWAYS AS IDENTITY,
+		state VARCHAR(512),
+		occupation_major_title VARCHAR(512),
+		total_employment INTEGER, 
+		percentile_salary_25th_hourly REAL,
+		percentile_salary_25th_annual INTEGER,
+		occupation_code VARCHAR(512))`)
+
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
-func writeToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
+func writeCollegeScoreCardDataToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
 	tx, err := conn.Begin()
 	if err != nil {
 		log.Fatalln(err)
