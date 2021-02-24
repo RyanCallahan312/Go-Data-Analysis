@@ -28,7 +28,10 @@ func TestGetSheetData(t *testing.T) {
 	getSheetData(conn)
 
 	var stateCount int
-	conn.QueryRow(`SELECT COUNT(DISTINCT state) FROM state_employment_data;`).Scan(&stateCount)
+	err := conn.QueryRow(`SELECT COUNT(DISTINCT state) FROM state_employment_data;`).Scan(&stateCount)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	if stateCount != 50 {
 		t.Errorf("Expected 50 states; Got %d", stateCount)
