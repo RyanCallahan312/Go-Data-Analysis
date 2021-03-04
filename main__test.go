@@ -15,7 +15,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func TestGetSheetData(t *testing.T) {
+func TestMain(m *testing.M) {
 	if _, err := os.Stat("./.env"); err == nil {
 		err := godotenv.Load()
 		if err != nil {
@@ -23,12 +23,40 @@ func TestGetSheetData(t *testing.T) {
 		}
 	}
 
-	conn := buildTestDB()
+	setUp()
+
+	retCode := m.Run()
+
+	tearDown()
+
+	os.Exit(retCode)
+}
+
+func setUp() {
+	buildTestDB()
+}
+
+func tearDown() {
+	tearTestDownDB()
+}
+
+func TestGetSheetData(t *testing.T) {
+
+	conn, err := sql.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}()
 
 	getSheetData(conn)
 
 	var stateCount int
-	err := conn.QueryRow(`SELECT COUNT(DISTINCT state) FROM state_employment_data;`).Scan(&stateCount)
+	err = conn.QueryRow(`SELECT COUNT(DISTINCT state) FROM state_employment_data;`).Scan(&stateCount)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -37,7 +65,6 @@ func TestGetSheetData(t *testing.T) {
 		t.Errorf("Expected 50 states; Got %d", stateCount)
 	}
 
-	tearTestDownDB(conn)
 }
 
 func TestGetJobDataDTOs(t *testing.T) {
@@ -67,12 +94,6 @@ func TestGetJobDataDTO(t *testing.T) {
 }
 
 func TestRequestData(t *testing.T) {
-	if _, err := os.Stat("./.env"); err == nil {
-		err := godotenv.Load()
-		if err != nil {
-			log.Fatalln(err)
-		}
-	}
 
 	httpClient := &http.Client{}
 	baseURL := "https://api.data.gov/ed/collegescorecard/v1/schools.json"
@@ -132,14 +153,17 @@ func TestRequestData(t *testing.T) {
 }
 
 func TestWriteToDb(t *testing.T) {
-	if _, err := os.Stat("./.env"); err == nil {
-		err := godotenv.Load()
+
+	conn, err := sql.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer func() {
+		err := conn.Close()
 		if err != nil {
 			log.Fatalln(err)
 		}
-	}
-
-	conn := buildTestDB()
+	}()
 
 	testResponse := CollegeScoreCardResponseDTO{
 		CollegeScoreCardMetadataDTO{10, 11, 12},
@@ -200,13 +224,12 @@ func TestWriteToDb(t *testing.T) {
 		log.Fatalln(err)
 	}
 
-	tearTestDownDB(conn)
 	if !reflect.DeepEqual(scoreCards[0], testResponse) {
 		t.Errorf("Inserted data does not equal queried data")
 	}
 }
 
-func buildTestDB() *sql.DB {
+func buildTestDB() {
 	conn, err := sql.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatalln(err)
@@ -237,27 +260,26 @@ func buildTestDB() *sql.DB {
 
 	initalizeTables(conn)
 
-	return conn
+	err = conn.Close()
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
 
-func tearTestDownDB(conn *sql.DB) {
+func tearTestDownDB() {
 
-	err := conn.Close()
+	conn, err := sql.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	conn, err = sql.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
-	if err != nil {
-		log.Fatalln(err)
-	}
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}()
 
 	_, err = conn.Exec(`DROP DATABASE comp490project1test`)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	err = conn.Close()
 	if err != nil {
 		log.Fatalln(err)
 	}
