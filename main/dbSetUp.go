@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+// InitalizeDB creates the database using the maintence connection string
 func InitalizeDB() {
 	conn, err := sql.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
 	if err != nil {

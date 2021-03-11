@@ -1,9 +1,12 @@
 package main
 
 import (
+	"Project1/dtos"
+	"Project1/migrations"
 	"bufio"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -23,7 +26,7 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	if _, err := os.Stat("./.env"); err == nil {
+	if _, err := os.Stat("../.env"); err == nil {
 		err := godotenv.Load()
 		if err != nil {
 			log.Fatalln(err)
@@ -45,15 +48,15 @@ func main() {
 
 	initalizeTables(conn)
 
-	errFile, err := os.Create("./err.txt")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	errWriter := bufio.NewWriter(errFile)
+	// errFile, err := os.Create("./err.txt")
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+	// errWriter := bufio.NewWriter(errFile)
 
-	getAPIData(conn, errWriter)
+	// getAPIData(conn, errWriter)
 
-	getSheetData(conn)
+	// getSheetData(conn)
 
 }
 
@@ -65,9 +68,9 @@ func getSheetData(conn *sql.DB) {
 	}
 }
 
-func getJobDataDTOs(rows [][]string) []JobDataDTO {
+func getJobDataDTOs(rows [][]string) []dtos.JobDataDTO {
 
-	jobDataDTOs := make([]JobDataDTO, 0)
+	jobDataDTOs := make([]dtos.JobDataDTO, 0)
 	for _, row := range rows {
 		if row[9] == "major" && row[2] == "2" && row[1] != "District of Columbia" {
 			jobDataDTOs = append(jobDataDTOs, getJobDataDTO(row))
@@ -91,7 +94,7 @@ func getSheetRows(fileName string, sheetName string) [][]string {
 	return rows
 }
 
-func getJobDataDTO(row []string) JobDataDTO {
+func getJobDataDTO(row []string) dtos.JobDataDTO {
 	totalEmployemnt, err := strconv.ParseInt(row[10], 10, 32)
 	if err != nil {
 		log.Fatalln(err)
@@ -107,7 +110,7 @@ func getJobDataDTO(row []string) JobDataDTO {
 		log.Fatalln(err)
 	}
 
-	jobDataDTO := JobDataDTO{
+	jobDataDTO := dtos.JobDataDTO{
 		State:                      row[1],
 		OccupationMajorTitle:       row[8],
 		TotalEmployment:            int(totalEmployemnt),
@@ -120,7 +123,7 @@ func getJobDataDTO(row []string) JobDataDTO {
 
 }
 
-func writeJobDataToDb(data JobDataDTO, conn *sql.DB) {
+func writeJobDataToDb(data dtos.JobDataDTO, conn *sql.DB) {
 	tx, err := conn.Begin()
 	if err != nil {
 		log.Fatalln(err)
@@ -282,6 +285,17 @@ func initalizeTables(conn *sql.DB) {
 		percentile_salary_25th_annual INTEGER,
 		occupation_code VARCHAR(512))`)
 
+	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS migrations (
+		migration_id INTEGER UNIQUE GENERATED ALWAYS AS IDENTITY,
+		version VARCHAR(16)
+		is_on_version BOOLEAN`)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var lastMigration migrations.MigrationModel
+	err = tx.QueryRow(`SELECT * FROM migrations WHERE is_on_version`).Scan(&lastMigration)
+	fmt.Printf("ID: %d; Version: %s; active %t", lastMigration.ID, lastMigration.Version, lastMigration.IsOnVersion)
 	if err != nil {
 		log.Fatalln(err)
 	}
