@@ -4,11 +4,10 @@ import (
 	"Project1/config"
 	"Project1/database"
 	"Project1/dtos"
-	"Project1/migrations"
+	"Project1/migration"
 	"bufio"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -52,15 +51,15 @@ func main() {
 
 	initalizeTables()
 
-	errFile, err := os.Create("./err.txt")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	errWriter := bufio.NewWriter(errFile)
+	// errFile, err := os.Create("./err.txt")
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+	// errWriter := bufio.NewWriter(errFile)
 
-	getAPIData(errWriter)
+	// getAPIData(errWriter)
 
-	getSheetData()
+	// getSheetData()
 
 }
 
@@ -231,6 +230,7 @@ func initalizeTables() {
 
 	defer func() {
 		if err != nil {
+			log.Println(err)
 			err = tx.Rollback()
 			if err != nil {
 				log.Fatalln(err)
@@ -292,7 +292,7 @@ func initalizeTables() {
 		log.Fatalln(err)
 	}
 
-	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS migrations (
+	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS migration (
 		migration_id INTEGER UNIQUE GENERATED ALWAYS AS IDENTITY,
 		version VARCHAR(16),
 		is_on_version BOOLEAN)`)
@@ -300,17 +300,15 @@ func initalizeTables() {
 		log.Fatalln(err)
 	}
 
-	var lastMigration migrations.MigrationModel
-	err = tx.QueryRowx(`SELECT * FROM migrations WHERE is_on_version`).StructScan(&lastMigration)
+	var lastMigration migration.MigrationModel
+	err = tx.QueryRowx(`SELECT * FROM migration WHERE is_on_version`).StructScan(&lastMigration)
 	if err != nil {
 		if err == sql.ErrNoRows {
-
+			err = nil
 		} else {
 			log.Fatalln(err)
 		}
 	}
-
-	fmt.Printf("ID: %d; Version: %s; active %t", lastMigration.ID, lastMigration.Version, lastMigration.IsOnVersion)
 }
 
 func writeCollegeScoreCardDataToDb(data CollegeScoreCardResponseDTO) {

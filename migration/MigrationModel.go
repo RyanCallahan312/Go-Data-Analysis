@@ -1,4 +1,4 @@
-package migrations
+package migration
 
 // MigrationModel models the migration table in the db
 type MigrationModel struct {
