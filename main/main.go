@@ -1,6 +1,8 @@
 package main
 
 import (
+	"Project1/config"
+	"Project1/database"
 	"Project1/dtos"
 	"Project1/migrations"
 	"bufio"
@@ -20,51 +22,53 @@ import (
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	_ "github.com/jackc/pgx/v4"
 	_ "github.com/jackc/pgx/v4/stdlib"
+	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	if _, err := os.Stat("../.env"); err == nil {
-		err := godotenv.Load()
+	_, err := os.Stat(config.ProjectRootPath + "/.env")
+	if err == nil {
+		err := godotenv.Load(config.ProjectRootPath + "/.env")
 		if err != nil {
 			log.Fatalln(err)
 		}
 	}
 
 	InitalizeDB()
-	conn, err := sql.Open("pgx", os.Getenv("WORKING_CONNECTION_STRING"))
+	database.DB, err = sqlx.Open("pgx", os.Getenv("WORKING_CONNECTION_STRING"))
 
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer func() {
-		err := conn.Close()
+		err := database.DB.Close()
 		if err != nil {
 			log.Fatalln(err)
 		}
 	}()
 
-	initalizeTables(conn)
+	initalizeTables()
 
-	// errFile, err := os.Create("./err.txt")
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// errWriter := bufio.NewWriter(errFile)
+	errFile, err := os.Create("./err.txt")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	errWriter := bufio.NewWriter(errFile)
 
-	// getAPIData(conn, errWriter)
+	getAPIData(errWriter)
 
-	// getSheetData(conn)
+	getSheetData()
 
 }
 
-func getSheetData(conn *sql.DB) {
+func getSheetData() {
 	rows := getSheetRows("state_M2019_dl.xlsx", "State_M2019_dl")
 	jobDataDTOs := getJobDataDTOs(rows)
 	for _, jobDataDTO := range jobDataDTOs {
-		writeJobDataToDb(jobDataDTO, conn)
+		writeJobDataToDb(jobDataDTO)
 	}
 }
 
@@ -123,8 +127,8 @@ func getJobDataDTO(row []string) dtos.JobDataDTO {
 
 }
 
-func writeJobDataToDb(data dtos.JobDataDTO, conn *sql.DB) {
-	tx, err := conn.Begin()
+func writeJobDataToDb(data dtos.JobDataDTO) {
+	tx, err := database.DB.Beginx()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -155,7 +159,7 @@ func writeJobDataToDb(data dtos.JobDataDTO, conn *sql.DB) {
 
 }
 
-func getAPIData(conn *sql.DB, writer *bufio.Writer) {
+func getAPIData(writer *bufio.Writer) {
 
 	httpClient := &http.Client{}
 	baseURL := "https://api.data.gov/ed/collegescorecard/v1/schools.json"
@@ -173,7 +177,7 @@ func getAPIData(conn *sql.DB, writer *bufio.Writer) {
 	if rawResponse != "" {
 		writeToFile(rawResponse, writer, &fileLock)
 	} else {
-		writeCollegeScoreCardDataToDb(response, conn)
+		writeCollegeScoreCardDataToDb(response)
 	}
 
 	wg := sync.WaitGroup{}
@@ -196,7 +200,7 @@ func getAPIData(conn *sql.DB, writer *bufio.Writer) {
 			if rawResponse != "" {
 				writeToFile(rawResponse, writer, &fileLock)
 			} else {
-				writeCollegeScoreCardDataToDb(response, conn)
+				writeCollegeScoreCardDataToDb(response)
 			}
 
 		}(page)
@@ -219,8 +223,8 @@ func createFilterBase() map[string]string {
 	return filters
 }
 
-func initalizeTables(conn *sql.DB) {
-	tx, err := conn.Begin()
+func initalizeTables() {
+	tx, err := database.DB.Beginx()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -284,25 +288,33 @@ func initalizeTables(conn *sql.DB) {
 		percentile_salary_25th_hourly REAL,
 		percentile_salary_25th_annual INTEGER,
 		occupation_code VARCHAR(512))`)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS migrations (
 		migration_id INTEGER UNIQUE GENERATED ALWAYS AS IDENTITY,
-		version VARCHAR(16)
-		is_on_version BOOLEAN`)
+		version VARCHAR(16),
+		is_on_version BOOLEAN)`)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	var lastMigration migrations.MigrationModel
-	err = tx.QueryRow(`SELECT * FROM migrations WHERE is_on_version`).Scan(&lastMigration)
-	fmt.Printf("ID: %d; Version: %s; active %t", lastMigration.ID, lastMigration.Version, lastMigration.IsOnVersion)
+	err = tx.QueryRowx(`SELECT * FROM migrations WHERE is_on_version`).StructScan(&lastMigration)
 	if err != nil {
-		log.Fatalln(err)
+		if err == sql.ErrNoRows {
+
+		} else {
+			log.Fatalln(err)
+		}
 	}
+
+	fmt.Printf("ID: %d; Version: %s; active %t", lastMigration.ID, lastMigration.Version, lastMigration.IsOnVersion)
 }
 
-func writeCollegeScoreCardDataToDb(data CollegeScoreCardResponseDTO, conn *sql.DB) {
-	tx, err := conn.Begin()
+func writeCollegeScoreCardDataToDb(data CollegeScoreCardResponseDTO) {
+	tx, err := database.DB.Beginx()
 	if err != nil {
 		log.Fatalln(err)
 	}

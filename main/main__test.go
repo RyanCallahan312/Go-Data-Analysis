@@ -1,7 +1,7 @@
 package main
 
 import (
-	"database/sql"
+	"Project1/database"
 	"fmt"
 	"log"
 	"net/http"
@@ -25,7 +25,18 @@ func TestMain(m *testing.M) {
 
 	setUp()
 
+	var err error
+	database.DB, err = sqlx.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	retCode := m.Run()
+
+	err = database.DB.Close()
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	tearDown()
 
@@ -42,21 +53,10 @@ func tearDown() {
 
 func TestGetSheetData(t *testing.T) {
 
-	conn, err := sql.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			log.Fatalln(err)
-		}
-	}()
-
-	getSheetData(conn)
+	getSheetData()
 
 	var stateCount int
-	err = conn.QueryRow(`SELECT COUNT(DISTINCT state) FROM state_employment_data;`).Scan(&stateCount)
+	err := database.DB.QueryRow(`SELECT COUNT(DISTINCT state) FROM state_employment_data;`).Scan(&stateCount)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -154,31 +154,15 @@ func TestRequestData(t *testing.T) {
 
 func TestWriteToDb(t *testing.T) {
 
-	conn, err := sql.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer func() {
-		err := conn.Close()
-		if err != nil {
-			log.Fatalln(err)
-		}
-	}()
-
 	testResponse := CollegeScoreCardResponseDTO{
 		CollegeScoreCardMetadataDTO{10, 11, 12},
 		[]CollegeScoreCardFieldsDTO{
 			{1, "bsu", "bridgew", 1, 2, 3, 4},
 			{2, "bsu", "bridgew", 1, 2, 3, 4}}}
 
-	writeCollegeScoreCardDataToDb(testResponse, conn)
+	writeCollegeScoreCardDataToDb(testResponse)
 
-	idRows, err := conn.Query(`SELECT DISTINCT request_id FROM request`)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	sqlxConn, err := sqlx.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
+	idRows, err := database.DB.Query(`SELECT DISTINCT request_id FROM request`)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -193,7 +177,7 @@ func TestWriteToDb(t *testing.T) {
 		fmt.Println(requestDataID)
 
 		var metadata CollegeScoreCardMetadataDTO
-		metadataRow := sqlxConn.QueryRowx(`SELECT total_results, page_number, per_page FROM metadata WHERE metadata_id = $1`, requestDataID)
+		metadataRow := database.DB.QueryRowx(`SELECT total_results, page_number, per_page FROM metadata WHERE metadata_id = $1`, requestDataID)
 
 		err = metadataRow.StructScan(&metadata)
 		if err != nil {
@@ -202,7 +186,7 @@ func TestWriteToDb(t *testing.T) {
 
 		results := make([]CollegeScoreCardFieldsDTO, 0)
 		var result CollegeScoreCardFieldsDTO
-		dataRows, err := sqlxConn.Queryx(`SELECT data_id, school_name, school_name, school_city, student_size_2018, student_size_2017, over_poverty_three_years_after_completetion_2017, three_year_repayment_overall_2016 FROM request_data WHERE request_id = $1`, requestDataID)
+		dataRows, err := database.DB.Queryx(`SELECT data_id, school_name, school_name, school_city, student_size_2018, student_size_2017, over_poverty_three_years_after_completetion_2017, three_year_repayment_overall_2016 FROM request_data WHERE request_id = $1`, requestDataID)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -219,10 +203,6 @@ func TestWriteToDb(t *testing.T) {
 		scoreCards = append(scoreCards, CollegeScoreCardResponseDTO{metadata, results})
 
 	}
-	err = sqlxConn.Close()
-	if err != nil {
-		log.Fatalln(err)
-	}
 
 	if !reflect.DeepEqual(scoreCards[0], testResponse) {
 		t.Errorf("Inserted data does not equal queried data")
@@ -230,37 +210,38 @@ func TestWriteToDb(t *testing.T) {
 }
 
 func buildTestDB() {
-	conn, err := sql.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
+	var err error
+	database.DB, err = sqlx.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	var dbExists bool
-	_ = conn.QueryRow(`SELECT EXISTS (
+	_ = database.DB.QueryRow(`SELECT EXISTS (
 			SELECT FROM pg_database 
 			WHERE datname = 'comp490project1test'
 			)`).Scan(&dbExists)
 
 	if !dbExists {
-		_, err = conn.Exec(`CREATE DATABASE comp490project1test`)
+		_, err = database.DB.Exec(`CREATE DATABASE comp490project1test`)
 		if err != nil {
 			log.Fatalln(err)
 		}
 	}
 
-	err = conn.Close()
+	err = database.DB.Close()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	conn, err = sql.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
+	database.DB, err = sqlx.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	initalizeTables(conn)
+	initalizeTables()
 
-	err = conn.Close()
+	err = database.DB.Close()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -268,18 +249,19 @@ func buildTestDB() {
 
 func tearTestDownDB() {
 
-	conn, err := sql.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
+	var err error
+	database.DB, err = sqlx.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer func() {
-		err := conn.Close()
+		err := database.DB.Close()
 		if err != nil {
 			log.Fatalln(err)
 		}
 	}()
 
-	_, err = conn.Exec(`DROP DATABASE comp490project1test`)
+	_, err = database.DB.Exec(`DROP DATABASE comp490project1test`)
 	if err != nil {
 		log.Fatalln(err)
 	}
