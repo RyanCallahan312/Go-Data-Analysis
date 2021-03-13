@@ -1,6 +1,7 @@
 package main
 
 import (
+	"Project1/config"
 	"Project1/database"
 	"fmt"
 	"log"
@@ -16,8 +17,10 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if _, err := os.Stat("./.env"); err == nil {
-		err := godotenv.Load()
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	_, err := os.Stat(config.ProjectRootPath + "/.env")
+	if err == nil {
+		err := godotenv.Load(config.ProjectRootPath + "/.env")
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -25,7 +28,6 @@ func TestMain(m *testing.M) {
 
 	setUp()
 
-	var err error
 	database.DB, err = sqlx.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatalln(err)
@@ -216,14 +218,15 @@ func buildTestDB() {
 		log.Fatalln(err)
 	}
 
+	statement := fmt.Sprintf(`SELECT EXISTS (
+		SELECT FROM pg_database 
+		WHERE datname = "%stest`, os.Getenv("DATABASE_NAME"))
 	var dbExists bool
-	_ = database.DB.QueryRow(`SELECT EXISTS (
-			SELECT FROM pg_database 
-			WHERE datname = $1
-			)`, os.Getenv("DATABASE_NAME")+"test").Scan(&dbExists)
+	_ = database.DB.QueryRow(statement).Scan(&dbExists)
 
 	if !dbExists {
-		_, err = database.DB.Exec(`CREATE DATABASE $1`, os.Getenv("DATABASE_NAME")+"test")
+		statement = fmt.Sprintf(`CREATE DATABASE %stest`, os.Getenv("DATABASE_NAME"))
+		_, err = database.DB.Exec(statement)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -261,7 +264,9 @@ func tearTestDownDB() {
 		}
 	}()
 
-	_, err = database.DB.Exec(`DROP DATABASE $1`, os.Getenv("DATABASE_NAME")+"test")
+	statement := fmt.Sprintf(`DROP DATABASE %stest`, os.Getenv("DATABASE_NAME"))
+
+	_, err = database.DB.Exec(statement)
 	if err != nil {
 		log.Fatalln(err)
 	}

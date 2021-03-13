@@ -77,11 +77,11 @@ func initalizeDB() {
 	var dbExists bool
 	_ = db.QueryRow(`SELECT EXISTS (
 			SELECT FROM pg_database 
-			WHERE datname = $1
-			)`, os.Getenv("DATABASE_NAME")).Scan(&dbExists)
+			WHERE datname = "
+			` + os.Getenv("DATABASE_NAME") + `")`).Scan(&dbExists)
 
 	if !dbExists {
-		_, err = db.Exec(`CREATE DATABASE $1`, os.Getenv("DATABASE_NAME"))
+		_, err = db.Exec(`CREATE DATABASE ` + os.Getenv("DATABASE_NAME"))
 		if err != nil {
 			log.Fatalln(err)
 		}
