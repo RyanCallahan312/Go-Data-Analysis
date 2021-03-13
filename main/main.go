@@ -35,7 +35,7 @@ func main() {
 		}
 	}
 
-	migration.Migrate()
+	migration.MigrateToLatest()
 
 	if err != nil {
 		log.Fatalln(err)

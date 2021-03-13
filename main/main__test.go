@@ -219,11 +219,11 @@ func buildTestDB() {
 	var dbExists bool
 	_ = database.DB.QueryRow(`SELECT EXISTS (
 			SELECT FROM pg_database 
-			WHERE datname = 'comp490project1test'
-			)`).Scan(&dbExists)
+			WHERE datname = $1
+			)`, os.Getenv("DATABASE_NAME")+"test").Scan(&dbExists)
 
 	if !dbExists {
-		_, err = database.DB.Exec(`CREATE DATABASE comp490project1test`)
+		_, err = database.DB.Exec(`CREATE DATABASE $1`, os.Getenv("DATABASE_NAME")+"test")
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -261,7 +261,7 @@ func tearTestDownDB() {
 		}
 	}()
 
-	_, err = database.DB.Exec(`DROP DATABASE comp490project1test`)
+	_, err = database.DB.Exec(`DROP DATABASE $1`, os.Getenv("DATABASE_NAME")+"test")
 	if err != nil {
 		log.Fatalln(err)
 	}

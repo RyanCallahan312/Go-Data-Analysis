@@ -9,12 +9,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-var versions = []string{
-	"v0.0.0",
-	"v0.0.1",
-	"v1.0.0",
-}
-
 // GetLastMigration queries the migration table to find the current db version. if no results are found it defaults to V0.0.0
 func GetLastMigration() MigrationModel {
 	var lastMigration MigrationModel
@@ -34,18 +28,8 @@ func GetLastMigration() MigrationModel {
 	return lastMigration
 }
 
-// UpdateDBFromVersion will either roll back or build the db to a specified version
-func UpdateDBFromVersion(lastMigration MigrationModel, isBuild bool) {
-	var constraint *semver.Constraints
-	var err error
-	if isBuild {
-		constraint, err = semver.NewConstraint("> " + lastMigration.Version)
-	} else {
-		constraint, err = semver.NewConstraint("< " + lastMigration.Version)
-	}
-	if err != nil {
-		log.Fatalln(err)
-	}
+// UpdateDB will either roll back or build the db to a specified version
+func UpdateDB(lastMigration MigrationModel, isBuild bool, constraint *semver.Constraints) {
 
 	semanticVersions := getAvailableVersions()
 
@@ -62,6 +46,21 @@ func UpdateDBFromVersion(lastMigration MigrationModel, isBuild bool) {
 		}
 	}
 	updateMigrationTable(isBuild, lastMigration)
+}
+
+func MakeConstraint(lastMigration MigrationModel, isBuild bool, targetVersion string) *semver.Constraints{
+	var constraint *semver.Constraints
+	var err error
+	if isBuild {
+		constraint, err = semver.NewConstraint("> " + lastMigration.Version + ", < " + targetVersion)
+	} else {
+		constraint, err = semver.NewConstraint("< " + lastMigration.Version + ", > " + targetVersion)
+	}
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	return constraint
 }
 
 func updateMigrationTable(isBuild bool, lastMigration MigrationModel) {
@@ -84,10 +83,10 @@ func updateMigrationTable(isBuild bool, lastMigration MigrationModel) {
 		}
 	}()
 
-	for i, version := range versions {
+	for i, version := range Versions {
 		var isCurrentVersion bool
 		if isBuild {
-			isCurrentVersion = i == len(versions)-1
+			isCurrentVersion = i == len(Versions)-1
 		} else {
 			isCurrentVersion = i == 0
 		}
@@ -145,8 +144,8 @@ func runInTransaction(isBuild bool, scriptToRun func(bool, *sqlx.Tx)) {
 }
 
 func getAvailableVersions() []*semver.Version {
-	semanticVersions := make([]*semver.Version, len(versions))
-	for i, r := range versions {
+	semanticVersions := make([]*semver.Version, len(Versions))
+	for i, r := range Versions {
 		semanticVersion, err := semver.NewVersion(r)
 		if err != nil {
 			log.Fatalln(err)
