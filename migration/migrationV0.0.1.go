@@ -6,7 +6,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func buildV0_0_0(tx *sqlx.Tx) {
+func buildV0_0_1(tx *sqlx.Tx) {
 
 	_, err := tx.Exec(`CREATE TABLE IF NOT EXISTS metadata (
 		metadata_id INTEGER UNIQUE GENERATED ALWAYS AS IDENTITY, 
@@ -58,7 +58,7 @@ func buildV0_0_0(tx *sqlx.Tx) {
 	}
 }
 
-func rollbackV0_0_0(tx *sqlx.Tx) {
+func rollbackV0_0_1(tx *sqlx.Tx) {
 
 	_, err := tx.Exec(`DROP TABLE IF EXISTS state_employment_data`)
 	if err != nil {
@@ -82,12 +82,12 @@ func rollbackV0_0_0(tx *sqlx.Tx) {
 
 }
 
-// MigrateV0_0_0 either builds or rollsback db versions to v0.0.0
-func MigrateV0_0_0(build bool, tx *sqlx.Tx) {
+// MigrateV0_0_1 either builds or rollsback db versions to v0.0.0
+func MigrateV0_0_1(build bool, tx *sqlx.Tx) {
 
 	if build {
-		buildV0_0_0(tx)
+		buildV0_0_1(tx)
 	} else {
-		rollbackV0_0_0(tx)
+		rollbackV0_0_1(tx)
 	}
 }

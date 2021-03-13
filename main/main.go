@@ -21,7 +21,6 @@ import (
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	_ "github.com/jackc/pgx/v4"
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 )
 
@@ -36,8 +35,7 @@ func main() {
 		}
 	}
 
-	InitalizeDB()
-	database.DB, err = sqlx.Open("pgx", os.Getenv("WORKING_CONNECTION_STRING"))
+	migration.Migrate()
 
 	if err != nil {
 		log.Fatalln(err)
@@ -49,7 +47,7 @@ func main() {
 		}
 	}()
 
-	initalizeTables()
+	//initalizeTables()
 
 	// errFile, err := os.Create("./err.txt")
 	// if err != nil {

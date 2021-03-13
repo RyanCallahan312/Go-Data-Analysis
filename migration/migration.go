@@ -1,14 +1,20 @@
-package main
+package migration
 
 import (
+	"Project1/database"
 	"log"
 	"os"
 
 	"github.com/jmoiron/sqlx"
 )
 
-// InitalizeDB creates the database using the maintence connection string
-func InitalizeDB() {
+func Migrate() {
+	initalizeDB()
+	lastMigration := GetLastMigration()
+	UpdateDBFromVersion(lastMigration, true)
+}
+
+func initalizeDB() {
 	db, err := sqlx.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatalln(err)
@@ -34,5 +40,7 @@ func InitalizeDB() {
 			log.Fatalln(err)
 		}
 	}
+
+	database.DB, err = sqlx.Open("pgx", os.Getenv("WORKING_CONNECTION_STRING"))
 
 }
