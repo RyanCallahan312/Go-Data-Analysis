@@ -3,6 +3,7 @@ package main
 import (
 	"Project1/config"
 	"Project1/database"
+	"Project1/migration"
 	"fmt"
 	"log"
 	"net/http"
@@ -28,17 +29,7 @@ func TestMain(m *testing.M) {
 
 	setUp()
 
-	database.DB, err = sqlx.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
-	if err != nil {
-		log.Fatalln(err)
-	}
-
 	retCode := m.Run()
-
-	err = database.DB.Close()
-	if err != nil {
-		log.Fatalln(err)
-	}
 
 	tearDown()
 
@@ -212,47 +203,22 @@ func TestWriteToDb(t *testing.T) {
 }
 
 func buildTestDB() {
+	migration.InitalizeDB(os.Getenv("DATABASE_NAME") + "test")
 	var err error
-	database.DB, err = sqlx.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	statement := fmt.Sprintf(`SELECT EXISTS (
-		SELECT FROM pg_database 
-		WHERE datname = "%stest`, os.Getenv("DATABASE_NAME"))
-	var dbExists bool
-	_ = database.DB.QueryRow(statement).Scan(&dbExists)
-
-	if !dbExists {
-		statement = fmt.Sprintf(`CREATE DATABASE %stest`, os.Getenv("DATABASE_NAME"))
-		_, err = database.DB.Exec(statement)
-		if err != nil {
-			log.Fatalln(err)
-		}
-	}
-
-	err = database.DB.Close()
-	if err != nil {
-		log.Fatalln(err)
-	}
-
 	database.DB, err = sqlx.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	initalizeTables()
-
-	err = database.DB.Close()
-	if err != nil {
-		log.Fatalln(err)
-	}
+	migration.MigrateToLatest()
 }
 
 func tearTestDownDB() {
 
-	var err error
+	err := database.DB.Close()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	database.DB, err = sqlx.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatalln(err)

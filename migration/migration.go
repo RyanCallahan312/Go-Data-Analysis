@@ -1,8 +1,8 @@
 package migration
 
 import (
-	"Project1/database"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 
@@ -19,7 +19,6 @@ var Versions = []string{
 
 // MigrateToLatest Migrates the database to the latest version
 func MigrateToLatest() {
-	initalizeDB()
 	lastMigration := GetLastMigration()
 	constraint := MakeConstraint(lastMigration, true, Versions[len(Versions)-1])
 	UpdateDB(lastMigration, true, constraint)
@@ -39,7 +38,6 @@ func MigrateToVersion(targetVersion string) error {
 		return errors.New("Invalid version number")
 	}
 
-	initalizeDB()
 	lastMigration := GetLastMigration()
 
 	isBuildConstriant, err := semver.NewConstraint("< " + targetVersion)
@@ -60,14 +58,14 @@ func MigrateToVersion(targetVersion string) error {
 	return nil
 }
 
-func initalizeDB() {
+// InitalizeDB inalized the db with given name
+func InitalizeDB(name string) {
 	db, err := sqlx.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	defer func() {
-
 		err := db.Close()
 		if err != nil {
 			log.Fatalln(err)
@@ -75,18 +73,15 @@ func initalizeDB() {
 	}()
 
 	var dbExists bool
-	_ = db.QueryRow(`SELECT EXISTS (
+	_ = db.QueryRow(fmt.Sprintf(`SELECT EXISTS (
 			SELECT FROM pg_database 
-			WHERE datname = "
-			` + os.Getenv("DATABASE_NAME") + `")`).Scan(&dbExists)
+			WHERE datname = "%s"`, name)).Scan(&dbExists)
 
 	if !dbExists {
-		_, err = db.Exec(`CREATE DATABASE ` + os.Getenv("DATABASE_NAME"))
+		_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE %s`, name))
 		if err != nil {
 			log.Fatalln(err)
 		}
 	}
-
-	database.DB, err = sqlx.Open("pgx", os.Getenv("WORKING_CONNECTION_STRING"))
 
 }

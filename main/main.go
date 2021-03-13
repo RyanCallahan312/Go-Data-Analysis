@@ -21,6 +21,7 @@ import (
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	_ "github.com/jackc/pgx/v4"
 	_ "github.com/jackc/pgx/v4/stdlib"
+	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 )
 
@@ -35,11 +36,12 @@ func main() {
 		}
 	}
 
-	migration.MigrateToLatest()
-
+	migration.InitalizeDB(os.Getenv("DATABASE_NAME"))
+	database.DB, err = sqlx.Open("pgx", os.Getenv("WORKING_CONNECTION_STRING"))
 	if err != nil {
 		log.Fatalln(err)
 	}
+	migration.MigrateToLatest()
 	defer func() {
 		err := database.DB.Close()
 		if err != nil {
