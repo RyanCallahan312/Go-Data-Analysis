@@ -7,8 +7,8 @@ import (
 )
 
 func buildV1_0_0(tx *sqlx.Tx) {
-	_, err := tx.Exec(`ALTER TABLE request_daa 
-			ADD COLUMN school_state VARCHR(512),
+	_, err := tx.Exec(`ALTER TABLE request_data
+		ADD COLUMN school_state VARCHAR(512),
 		ADD COLUMN three_year_repayment_declining_balance_2016 VARCHAR(512)
 		`)
 	if err != nil {
@@ -17,7 +17,7 @@ func buildV1_0_0(tx *sqlx.Tx) {
 }
 
 func rollbackV1_0_0(tx *sqlx.Tx) {
-	_, err := tx.Exec(`ALTER TABLE request_daa 
+	_, err := tx.Exec(`ALTER TABLE request_data
 		DROP COLUMN school_state,
 		DROP COLUMN three_year_repayment_declining_alance_2016
 		`)

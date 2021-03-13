@@ -3,6 +3,7 @@ package main
 import (
 	"Project1/config"
 	"Project1/database"
+	"Project1/dto"
 	"Project1/migration"
 	"fmt"
 	"log"
@@ -102,7 +103,7 @@ func TestRequestData(t *testing.T) {
 		t.Errorf("Response != 200")
 	}
 
-	responses := make([]CollegeScoreCardResponseDTO, 0)
+	responses := make([]dto.CollegeScoreCardResponseDTO, 0)
 	responses = append(responses, response)
 	sliceLock := &sync.Mutex{}
 
@@ -147,11 +148,33 @@ func TestRequestData(t *testing.T) {
 
 func TestWriteToDb(t *testing.T) {
 
-	testResponse := CollegeScoreCardResponseDTO{
-		CollegeScoreCardMetadataDTO{10, 11, 12},
-		[]CollegeScoreCardFieldsDTO{
-			{1, "bsu", "bridgew", 1, 2, 3, 4},
-			{2, "bsu", "bridgew", 1, 2, 3, 4}}}
+	testResponse := dto.CollegeScoreCardResponseDTO{
+		Metadata: dto.CollegeScoreCardMetadataDTO{
+			TotalResults:   10,
+			PageNumber:     11,
+			ResultsPerPage: 12,
+		},
+		Results: []dto.CollegeScoreCardFieldsDTO{
+			{
+				ID:              1,
+				SchoolName:      "bsu",
+				SchoolCity:      "bridgew",
+				StudentSize2018: 1,
+				StudentSize2017: 2,
+				StudentsOverPovertyLineThreeYearsAfterCompletion2017: 3,
+				ThreeYearRepaymentOverall2016:                        4,
+			},
+			{
+				ID:              2,
+				SchoolName:      "bsu",
+				SchoolCity:      "bridgew",
+				StudentSize2018: 1,
+				StudentSize2017: 2,
+				StudentsOverPovertyLineThreeYearsAfterCompletion2017: 3,
+				ThreeYearRepaymentOverall2016:                        4,
+			},
+		},
+	}
 
 	writeCollegeScoreCardDataToDb(testResponse)
 
@@ -160,7 +183,7 @@ func TestWriteToDb(t *testing.T) {
 		log.Fatalln(err)
 	}
 
-	scoreCards := make([]CollegeScoreCardResponseDTO, 0)
+	scoreCards := make([]dto.CollegeScoreCardResponseDTO, 0)
 	for idRows.Next() {
 		var requestDataID int
 		err := idRows.Scan(&requestDataID)
@@ -169,7 +192,7 @@ func TestWriteToDb(t *testing.T) {
 		}
 		fmt.Println(requestDataID)
 
-		var metadata CollegeScoreCardMetadataDTO
+		var metadata dto.CollegeScoreCardMetadataDTO
 		metadataRow := database.DB.QueryRowx(`SELECT total_results, page_number, per_page FROM metadata WHERE metadata_id = $1`, requestDataID)
 
 		err = metadataRow.StructScan(&metadata)
@@ -177,8 +200,8 @@ func TestWriteToDb(t *testing.T) {
 			log.Fatalln(err)
 		}
 
-		results := make([]CollegeScoreCardFieldsDTO, 0)
-		var result CollegeScoreCardFieldsDTO
+		results := make([]dto.CollegeScoreCardFieldsDTO, 0)
+		var result dto.CollegeScoreCardFieldsDTO
 		dataRows, err := database.DB.Queryx(`SELECT data_id, school_name, school_name, school_city, student_size_2018, student_size_2017, over_poverty_three_years_after_completetion_2017, three_year_repayment_overall_2016 FROM request_data WHERE request_id = $1`, requestDataID)
 		if err != nil {
 			log.Fatalln(err)
@@ -193,7 +216,7 @@ func TestWriteToDb(t *testing.T) {
 			results = append(results, result)
 		}
 
-		scoreCards = append(scoreCards, CollegeScoreCardResponseDTO{metadata, results})
+		scoreCards = append(scoreCards, dto.CollegeScoreCardResponseDTO{metadata, results})
 
 	}
 

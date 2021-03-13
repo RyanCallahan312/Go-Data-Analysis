@@ -75,8 +75,7 @@ func InitalizeDB(name string) {
 	var dbExists bool
 	_ = db.QueryRow(fmt.Sprintf(`SELECT EXISTS (
 			SELECT FROM pg_database 
-			WHERE datname = "%s"`, name)).Scan(&dbExists)
-
+			WHERE datname = '%s')`, name)).Scan(&dbExists)
 	if !dbExists {
 		_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE %s`, name))
 		if err != nil {

@@ -52,9 +52,9 @@ func MakeConstraint(lastMigration MigrationModel, isBuild bool, targetVersion st
 	var constraint *semver.Constraints
 	var err error
 	if isBuild {
-		constraint, err = semver.NewConstraint("> " + lastMigration.Version + ", < " + targetVersion)
+		constraint, err = semver.NewConstraint("> " + lastMigration.Version + ", <= " + targetVersion)
 	} else {
-		constraint, err = semver.NewConstraint("< " + lastMigration.Version + ", > " + targetVersion)
+		constraint, err = semver.NewConstraint("< " + lastMigration.Version + ", >= " + targetVersion)
 	}
 	if err != nil {
 		log.Fatalln(err)

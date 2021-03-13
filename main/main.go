@@ -3,7 +3,7 @@ package main
 import (
 	"Project1/config"
 	"Project1/database"
-	"Project1/dtos"
+	"Project1/dto"
 	"Project1/migration"
 	"bufio"
 	"database/sql"
@@ -49,17 +49,15 @@ func main() {
 		}
 	}()
 
-	//initalizeTables()
+	errFile, err := os.Create("./err.txt")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	errWriter := bufio.NewWriter(errFile)
 
-	// errFile, err := os.Create("./err.txt")
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// errWriter := bufio.NewWriter(errFile)
+	getAPIData(errWriter)
 
-	// getAPIData(errWriter)
-
-	// getSheetData()
+	getSheetData()
 
 }
 
@@ -71,9 +69,9 @@ func getSheetData() {
 	}
 }
 
-func getJobDataDTOs(rows [][]string) []dtos.JobDataDTO {
+func getJobDataDTOs(rows [][]string) []dto.JobDataDTO {
 
-	jobDataDTOs := make([]dtos.JobDataDTO, 0)
+	jobDataDTOs := make([]dto.JobDataDTO, 0)
 	for _, row := range rows {
 		if row[9] == "major" && row[2] == "2" && row[1] != "District of Columbia" {
 			jobDataDTOs = append(jobDataDTOs, getJobDataDTO(row))
@@ -97,7 +95,7 @@ func getSheetRows(fileName string, sheetName string) [][]string {
 	return rows
 }
 
-func getJobDataDTO(row []string) dtos.JobDataDTO {
+func getJobDataDTO(row []string) dto.JobDataDTO {
 	totalEmployemnt, err := strconv.ParseInt(row[10], 10, 32)
 	if err != nil {
 		log.Fatalln(err)
@@ -113,7 +111,7 @@ func getJobDataDTO(row []string) dtos.JobDataDTO {
 		log.Fatalln(err)
 	}
 
-	jobDataDTO := dtos.JobDataDTO{
+	jobDataDTO := dto.JobDataDTO{
 		State:                      row[1],
 		OccupationMajorTitle:       row[8],
 		TotalEmployment:            int(totalEmployemnt),
@@ -126,7 +124,7 @@ func getJobDataDTO(row []string) dtos.JobDataDTO {
 
 }
 
-func writeJobDataToDb(data dtos.JobDataDTO) {
+func writeJobDataToDb(data dto.JobDataDTO) {
 	tx, err := database.DB.Beginx()
 	if err != nil {
 		log.Fatalln(err)
@@ -311,7 +309,7 @@ func initalizeTables() {
 	}
 }
 
-func writeCollegeScoreCardDataToDb(data CollegeScoreCardResponseDTO) {
+func writeCollegeScoreCardDataToDb(data dto.CollegeScoreCardResponseDTO) {
 	tx, err := database.DB.Beginx()
 	if err != nil {
 		log.Fatalln(err)
@@ -386,13 +384,13 @@ func getRequestURL(baseURL string, filters map[string]string) *url.URL {
 	return requestURL
 }
 
-func requestData(url *url.URL, httpClient *http.Client) (CollegeScoreCardResponseDTO, string) {
+func requestData(url *url.URL, httpClient *http.Client) (dto.CollegeScoreCardResponseDTO, string) {
 	request, _ := http.NewRequest(http.MethodGet, url.String(), nil)
 
 	retry := true
 	retryCount := 0
 
-	var parsedResponse CollegeScoreCardResponseDTO
+	var parsedResponse dto.CollegeScoreCardResponseDTO
 	rawResponse := ""
 
 	var resp *http.Response
