@@ -44,4 +44,5 @@ jobs:
         MAINTENANCE_CONNECTION_STRING: ${{ secrets.MAINTENANCE_CONNECTION_STRING }}
         TEST_CONNECTION_STRING: ${{ secrets.TEST_CONNECTION_STRING }}
         WORKING_CONNECTION_STRING: ${{ secrets.WORKING_CONNECTION_STRING }}
-      run: go test -v ./...
+        DATABASE_NAME: ${{secrets.DATABASE_NAME}}
+      run: go test -p 1 -v ./...

@@ -1,4 +1,4 @@
-package main
+package dto
 
 import (
 	"fmt"
@@ -42,13 +42,15 @@ func (metadataDTO CollegeScoreCardMetadataDTO) TextOutput(sb *strings.Builder) {
 
 // CollegeScoreCardFieldsDTO holds the required fields from college score card response
 type CollegeScoreCardFieldsDTO struct {
-	ID                                                   int    `json:"id" db:"data_id"`
-	SchoolName                                           string `json:"school.name" db:"school_name"`
-	SchoolCity                                           string `json:"school.city" db:"school_city"`
-	StudentSize2018                                      int    `json:"2018.student.size" db:"student_size_2018"`
-	StudentSize2017                                      int    `json:"2017.student.size" db:"student_size_2017"`
-	StudentsOverPovertyLineThreeYearsAfterCompletion2017 int    `json:"2017.earnings.3_yrs_after_completion.overall_count_over_poverty_line" db:"over_poverty_three_years_after_completetion_2017"`
-	ThreeYearRepaymentOverall2016                        int    `json:"2016.repayment.3_yr_repayment.overall" db:"three_year_repayment_overall_2016"`
+	ID                                                   int     `json:"id" db:"data_id"`
+	SchoolName                                           string  `json:"school.name" db:"school_name"`
+	SchoolCity                                           string  `json:"school.city" db:"school_city"`
+	SchoolState                                          string  `json:"school.state" db:"school_state"`
+	StudentSize2018                                      int     `json:"2018.student.size" db:"student_size_2018"`
+	StudentSize2017                                      int     `json:"2017.student.size" db:"student_size_2017"`
+	StudentsOverPovertyLineThreeYearsAfterCompletion2017 int     `json:"2017.earnings.3_yrs_after_ completion.overall_count_over_poverty_line" db:"over_poverty_three_years_after_completetion_2017"`
+	ThreeYearRepaymentOverall2016                        int     `json:"2016.repayment.3_yr_repayment.overall" db:"three_year_repayment_overall_2016"`
+	ThreeYearRepaymentDecliningBalance2016               float32 `json:"2016.repayment.repayment_cohort.3_year_declining_balance" db:"three_year_repayment_declining_balance_2016"`
 }
 
 //TextOutput is exported,it formats the data to plain text.
@@ -56,8 +58,10 @@ func (fieldsDTO CollegeScoreCardFieldsDTO) TextOutput(sb *strings.Builder) {
 	sb.WriteString(fmt.Sprintf("\t%-70s %-30d\n", "ID:", fieldsDTO.ID))
 	sb.WriteString(fmt.Sprintf("\t%-70s %-30s\n", "School Name:", fieldsDTO.SchoolName))
 	sb.WriteString(fmt.Sprintf("\t%-70s %-30s\n", "School City:", fieldsDTO.SchoolCity))
+	sb.WriteString(fmt.Sprintf("\t%-70s %-30s\n", "School State:", fieldsDTO.SchoolState))
 	sb.WriteString(fmt.Sprintf("\t%-70s %-30d\n", "2018 Student Size:", fieldsDTO.StudentSize2018))
 	sb.WriteString(fmt.Sprintf("\t%-70s %-30d\n", "2017 Student Size:", fieldsDTO.StudentSize2017))
 	sb.WriteString(fmt.Sprintf("\t%-70s %-30d\n", "2017 Students Over Poverty Line Three Years After Completetion:", fieldsDTO.StudentsOverPovertyLineThreeYearsAfterCompletion2017))
 	sb.WriteString(fmt.Sprintf("\t%-70s %-30d\n", "2016 Three Year Repayment Overall:", fieldsDTO.ThreeYearRepaymentOverall2016))
+	sb.WriteString(fmt.Sprintf("\t%-70s %-30f\n", "2016 Three Year Repayment Declining Balance:", fieldsDTO.ThreeYearRepaymentDecliningBalance2016))
 }

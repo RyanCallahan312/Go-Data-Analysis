@@ -37,7 +37,7 @@ API_KEY=<Your Api Key Here>
 To build and run, in the top level directory run:
 
 ```
-go run .
+go run ./main
 ```
 
 # Test
@@ -45,5 +45,5 @@ go run .
 To test, in the top level directory run:
 
 ```
-go test
+go test -p 1 .//...
 ```
