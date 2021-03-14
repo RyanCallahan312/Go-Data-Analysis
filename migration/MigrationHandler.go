@@ -12,7 +12,7 @@ import (
 // GetLastMigration queries the migration table to find the current db version. if no results are found it defaults to V0.0.0
 func GetLastMigration() MigrationModel {
 	var lastMigration MigrationModel
-	err := database.DB.QueryRowx(`SELECT * FROM migration WHERE is_on_version`).StructScan(&lastMigration)
+	err := database.DB.QueryRowx(`SELECT * FROM migrations WHERE is_on_version=TRUE`).StructScan(&lastMigration)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			_, err = database.DB.Exec(`CREATE TABLE IF NOT EXISTS migrations(
@@ -20,7 +20,7 @@ func GetLastMigration() MigrationModel {
 				version VARCHAR(16),
 				is_on_version BOOLEAN)`)
 			if err != nil {
-				log.Fatalln(err)
+				log.Panic(err)
 			}
 		}
 		return MigrationModel{0, "v0.0.0", true}
@@ -29,26 +29,32 @@ func GetLastMigration() MigrationModel {
 }
 
 // UpdateDB will either roll back or build the db to a specified version
-func UpdateDB(lastMigration MigrationModel, isBuild bool, constraint *semver.Constraints) {
+func UpdateDB(lastMigration MigrationModel, isBuild bool, constraint *semver.Constraints) error {
 
 	semanticVersions := getAvailableVersions()
 
 	for i, version := range semanticVersions {
 		if isBuild {
 			if constraint.Check(version) {
-				runMigration(version.Original(), isBuild)
+				err := runMigration(version.Original(), isBuild)
+				if err != nil {
+					return err
+				}
 			}
 		} else {
 			reverseOrder := len(semanticVersions) - 1 - i
 			if constraint.Check(semanticVersions[reverseOrder]) {
-				runMigration(semanticVersions[reverseOrder].Original(), isBuild)
+				err := runMigration(semanticVersions[reverseOrder].Original(), isBuild)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
-	updateMigrationTable(isBuild, lastMigration)
+	return updateMigrationTable(isBuild, lastMigration)
 }
 
-func MakeConstraint(lastMigration MigrationModel, isBuild bool, targetVersion string) *semver.Constraints{
+func MakeConstraint(lastMigration MigrationModel, isBuild bool, targetVersion string) *semver.Constraints {
 	var constraint *semver.Constraints
 	var err error
 	if isBuild {
@@ -57,30 +63,25 @@ func MakeConstraint(lastMigration MigrationModel, isBuild bool, targetVersion st
 		constraint, err = semver.NewConstraint("< " + lastMigration.Version + ", >= " + targetVersion)
 	}
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	return constraint
 }
 
-func updateMigrationTable(isBuild bool, lastMigration MigrationModel) {
+func updateMigrationTable(isBuild bool, lastMigration MigrationModel) error {
 	tx, err := database.DB.Beginx()
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
-	defer func() {
+	defer func() error {
 		if err != nil {
-			err = tx.Rollback()
-			if err != nil {
-				log.Fatalln(err)
-			}
-			return
+			_ = tx.Rollback()
+			return err
 		}
 		err = tx.Commit()
-		if err != nil {
-			log.Fatalln(err)
-		}
+		return err
 	}()
 
 	for i, version := range Versions {
@@ -98,49 +99,48 @@ func updateMigrationTable(isBuild bool, lastMigration MigrationModel) {
 		if err == sql.ErrNoRows {
 			_, err = tx.Exec(`INSERT INTO migrations VALUES(DEFAULT, $1, $2)`, version, isCurrentVersion)
 			if err != nil {
-				log.Fatalln(err)
+				return err
 			}
 		} else if migration.IsOnVersion != isCurrentVersion {
 			_, err = tx.Exec(`UPDATE migrations SET is_on_version=$1 WHERE version='$1'`, isCurrentVersion, version)
 			if err != nil {
-				log.Fatalln(err)
+				return err
 			}
 		}
-
 	}
+	return nil
 
 }
 
-func runMigration(version string, isBuild bool) {
+func runMigration(version string, isBuild bool) error {
 	switch version {
 	case "v0.0.1":
-		runInTransaction(isBuild, MigrateV0_0_1)
+		err := runInTransaction(isBuild, MigrateV0_0_1)
+		if err != nil {
+			return err
+		}
 	case "v1.0.0":
-		runInTransaction(isBuild, MigrateV1_0_0)
+		err := runInTransaction(isBuild, MigrateV1_0_0)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func runInTransaction(isBuild bool, scriptToRun func(bool, *sqlx.Tx)) {
+func runInTransaction(isBuild bool, scriptToRun func(bool, *sqlx.Tx) error) error {
 	tx, err := database.DB.Beginx()
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
+	err = scriptToRun(isBuild, tx)
 
-	defer func() {
-		if err != nil {
-			err = tx.Rollback()
-			if err != nil {
-				log.Fatalln(err)
-			}
-			return
-		}
-		err = tx.Commit()
-		if err != nil {
-			log.Fatalln(err)
-		}
-	}()
-
-	scriptToRun(isBuild, tx)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	err = tx.Commit()
+	return err
 }
 
 func getAvailableVersions() []*semver.Version {
@@ -148,7 +148,7 @@ func getAvailableVersions() []*semver.Version {
 	for i, r := range Versions {
 		semanticVersion, err := semver.NewVersion(r)
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 
 		semanticVersions[i] = semanticVersion

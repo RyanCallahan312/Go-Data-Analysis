@@ -1,12 +1,10 @@
 package migration
 
 import (
-	"log"
-
 	"github.com/jmoiron/sqlx"
 )
 
-func buildV0_0_1(tx *sqlx.Tx) {
+func buildV0_0_1(tx *sqlx.Tx) error {
 
 	_, err := tx.Exec(`CREATE TABLE IF NOT EXISTS metadata (
 		metadata_id INTEGER UNIQUE GENERATED ALWAYS AS IDENTITY, 
@@ -15,7 +13,7 @@ func buildV0_0_1(tx *sqlx.Tx) {
 		per_page INTEGER)`)
 
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS request (
@@ -24,8 +22,9 @@ func buildV0_0_1(tx *sqlx.Tx) {
 		CONSTRAINT fk_request_data
 			FOREIGN KEY(metadata_id)
 			REFERENCES metadata(metadata_id))`)
+
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS request_data (
@@ -42,7 +41,7 @@ func buildV0_0_1(tx *sqlx.Tx) {
 			FOREIGN KEY(request_id)
 			REFERENCES request(request_id))`)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS state_employment_data (
@@ -54,40 +53,44 @@ func buildV0_0_1(tx *sqlx.Tx) {
 		percentile_salary_25th_annual INTEGER,
 		occupation_code VARCHAR(512))`)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
+
+	return nil
 }
 
-func rollbackV0_0_1(tx *sqlx.Tx) {
+func rollbackV0_0_1(tx *sqlx.Tx) error {
 
 	_, err := tx.Exec(`DROP TABLE IF EXISTS state_employment_data`)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	_, err = tx.Exec(`DROP TABLE IF EXISTS request_data CASCADE`)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	_, err = tx.Exec(`DROP TABLE IF EXISTS request CASCADE`)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	_, err = tx.Exec(`DROP TABLE IF EXISTS metadata CASCADE`)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
+
+	return nil
 
 }
 
 // MigrateV0_0_1 either builds or rollsback db versions to v0.0.0
-func MigrateV0_0_1(build bool, tx *sqlx.Tx) {
+func MigrateV0_0_1(build bool, tx *sqlx.Tx) error {
 
 	if build {
-		buildV0_0_1(tx)
+		return buildV0_0_1(tx)
 	} else {
-		rollbackV0_0_1(tx)
+		return rollbackV0_0_1(tx)
 	}
 }

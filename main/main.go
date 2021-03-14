@@ -32,26 +32,26 @@ func main() {
 	if err == nil {
 		err := godotenv.Load(config.ProjectRootPath + "/.env")
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 	}
 
 	migration.InitalizeDB(os.Getenv("DATABASE_NAME"))
 	database.DB, err = sqlx.Open("pgx", os.Getenv("WORKING_CONNECTION_STRING"))
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 	migration.MigrateToLatest()
 	defer func() {
 		err := database.DB.Close()
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 	}()
 
 	errFile, err := os.Create("./err.txt")
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 	errWriter := bufio.NewWriter(errFile)
 
@@ -84,12 +84,12 @@ func getJobDataDTOs(rows [][]string) []dto.JobDataDTO {
 func getSheetRows(fileName string, sheetName string) [][]string {
 	sheet, err := excelize.OpenFile(fileName)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	rows, err := sheet.GetRows(sheetName)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	return rows
@@ -98,17 +98,17 @@ func getSheetRows(fileName string, sheetName string) [][]string {
 func getJobDataDTO(row []string) dto.JobDataDTO {
 	totalEmployemnt, err := strconv.ParseInt(row[10], 10, 32)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	percentileSalary25thHourly, err := strconv.ParseFloat(row[19], 32)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	percentileSalary25thAnnual, err := strconv.ParseInt(row[24], 10, 32)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	jobDataDTO := dto.JobDataDTO{
@@ -127,19 +127,19 @@ func getJobDataDTO(row []string) dto.JobDataDTO {
 func writeJobDataToDb(data dto.JobDataDTO) {
 	tx, err := database.DB.Beginx()
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 	defer func() {
 		if err != nil {
 			err = tx.Rollback()
 			if err != nil {
-				log.Fatalln(err)
+				log.Panic(err)
 			}
 			return
 		}
 		err = tx.Commit()
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 	}()
 
@@ -151,7 +151,7 @@ func writeJobDataToDb(data dto.JobDataDTO) {
 		data.PercentileSalary25thAnnual,
 		data.OccupationCode)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 }
@@ -214,7 +214,7 @@ func createFilterBase() map[string]string {
 	filters["per_page"] = "100"
 
 	filters["school.degrees_awarded.predominant"] = "2,3"
-	filters["fields"] = "id,school.name,school.city,2018.student.size,2017.student.size,2017.earnings.3_yrs_after_completion.overall_count_over_poverty_line,2016.repayment.3_yr_repayment.overall"
+	filters["fields"] = "id,school.name,school.city,school.state,2018.student.size,2017.student.size,2017.earnings.3_yrs_after_completion.overall_count_over_poverty_line,2016.repayment.3_yr_repayment.overall,2016.repayment.repayment_cohort.3_year_declining_balance"
 	filters["api_key"] = os.Getenv("API_KEY")
 
 	return filters
@@ -223,7 +223,7 @@ func createFilterBase() map[string]string {
 func initalizeTables() {
 	tx, err := database.DB.Beginx()
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	defer func() {
@@ -231,13 +231,13 @@ func initalizeTables() {
 			log.Println(err)
 			err = tx.Rollback()
 			if err != nil {
-				log.Fatalln(err)
+				log.Panic(err)
 			}
 			return
 		}
 		err = tx.Commit()
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 	}()
 
@@ -248,7 +248,7 @@ func initalizeTables() {
 		per_page INTEGER)`)
 
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS request (
@@ -258,7 +258,7 @@ func initalizeTables() {
 			FOREIGN KEY(metadata_id)
 			REFERENCES metadata(metadata_id))`)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS request_data (
@@ -275,7 +275,7 @@ func initalizeTables() {
 			FOREIGN KEY(request_id)
 			REFERENCES request(request_id))`)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS state_employment_data (
@@ -287,7 +287,7 @@ func initalizeTables() {
 		percentile_salary_25th_annual INTEGER,
 		occupation_code VARCHAR(512))`)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	_, err = tx.Exec(`CREATE TABLE IF NOT EXISTS migration (
@@ -295,7 +295,7 @@ func initalizeTables() {
 		version VARCHAR(16),
 		is_on_version BOOLEAN)`)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	var lastMigration migration.MigrationModel
@@ -304,7 +304,7 @@ func initalizeTables() {
 		if err == sql.ErrNoRows {
 			err = nil
 		} else {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 	}
 }
@@ -312,20 +312,20 @@ func initalizeTables() {
 func writeCollegeScoreCardDataToDb(data dto.CollegeScoreCardResponseDTO) {
 	tx, err := database.DB.Beginx()
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	defer func() {
 		if err != nil {
 			err = tx.Rollback()
 			if err != nil {
-				log.Fatalln(err)
+				log.Panic(err)
 			}
 			return
 		}
 		err = tx.Commit()
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 	}()
 
@@ -335,21 +335,24 @@ func writeCollegeScoreCardDataToDb(data dto.CollegeScoreCardResponseDTO) {
 
 	metadataID := lastInsertID
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	_ = tx.QueryRow(`INSERT INTO request VALUES (DEFAULT, $1) RETURNING request_id`, metadataID).Scan(&lastInsertID)
 
 	requestID := lastInsertID
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	results := data.Results
 	for _, requestData := range results {
-		_, err = tx.Exec("INSERT INTO request_data VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8)", requestID, requestData.ID, requestData.SchoolName, requestData.SchoolCity, requestData.StudentSize2018, requestData.StudentSize2017, requestData.StudentsOverPovertyLineThreeYearsAfterCompletion2017, requestData.ThreeYearRepaymentOverall2016)
+		_, err = tx.Exec(`INSERT INTO request_data 
+			(request_data_id, request_id, data_id, school_name, school_city, school_state, student_size_2018, student_size_2017, over_poverty_three_years_after_completetion_2017, three_year_repayment_overall_2016, three_year_repayment_declining_balance_2016) 
+			VALUES (DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			requestID, requestData.ID, requestData.SchoolName, requestData.SchoolCity, requestData.SchoolState, requestData.StudentSize2018, requestData.StudentSize2017, requestData.StudentsOverPovertyLineThreeYearsAfterCompletion2017, requestData.ThreeYearRepaymentOverall2016, requestData.ThreeYearRepaymentDecliningBalance2016)
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 	}
 }
@@ -359,12 +362,12 @@ func writeToFile(data string, writer *bufio.Writer, fileLock *sync.Mutex) {
 	fileLock.Lock()
 	_, err := writer.WriteString(data)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	err = writer.Flush()
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 	fileLock.Unlock()
 }
@@ -372,7 +375,7 @@ func writeToFile(data string, writer *bufio.Writer, fileLock *sync.Mutex) {
 func getRequestURL(baseURL string, filters map[string]string) *url.URL {
 	requestURL, err := url.Parse(baseURL)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	query := requestURL.Query()
@@ -401,7 +404,7 @@ func requestData(url *url.URL, httpClient *http.Client) (dto.CollegeScoreCardRes
 
 		resp, err = httpClient.Do(request)
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
@@ -418,7 +421,7 @@ func requestData(url *url.URL, httpClient *http.Client) (dto.CollegeScoreCardRes
 
 		err := json.NewDecoder(resp.Body).Decode(&parsedResponse)
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 
 	} else {
@@ -432,7 +435,7 @@ func requestData(url *url.URL, httpClient *http.Client) (dto.CollegeScoreCardRes
 
 	err = resp.Body.Close()
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	return parsedResponse, rawResponse

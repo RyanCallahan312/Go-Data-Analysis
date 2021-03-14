@@ -18,10 +18,13 @@ var Versions = []string{
 }
 
 // MigrateToLatest Migrates the database to the latest version
-func MigrateToLatest() {
+func MigrateToLatest() error {
 	lastMigration := GetLastMigration()
+	if lastMigration.Version == Versions[len(Versions)-1] {
+		return nil
+	}
 	constraint := MakeConstraint(lastMigration, true, Versions[len(Versions)-1])
-	UpdateDB(lastMigration, true, constraint)
+	return UpdateDB(lastMigration, true, constraint)
 }
 
 // MigrateToVersion Migrates the database to a specified version
@@ -40,20 +43,24 @@ func MigrateToVersion(targetVersion string) error {
 
 	lastMigration := GetLastMigration()
 
+	if targetVersion == lastMigration.Version {
+		return nil
+	}
+
 	isBuildConstriant, err := semver.NewConstraint("< " + targetVersion)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	lastMigrationVersion, err := semver.NewVersion(lastMigration.Version)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	isBuild := isBuildConstriant.Check(lastMigrationVersion)
 
 	constraint := MakeConstraint(lastMigration, isBuild, targetVersion)
-	UpdateDB(lastMigration, isBuild, constraint)
+	err = UpdateDB(lastMigration, isBuild, constraint)
 
 	return nil
 }
@@ -62,13 +69,13 @@ func MigrateToVersion(targetVersion string) error {
 func InitalizeDB(name string) {
 	db, err := sqlx.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	defer func() {
 		err := db.Close()
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 	}()
 
@@ -79,7 +86,7 @@ func InitalizeDB(name string) {
 	if !dbExists {
 		_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE %s`, name))
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 	}
 

@@ -24,21 +24,28 @@ func TestMain(m *testing.M) {
 	if err == nil {
 		err := godotenv.Load(config.ProjectRootPath + "/.env")
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 	}
 
-	setUp()
+	err = setUp()
+	if err != nil {
+		tearDown()
+		log.Panic(err)
+	}
 
-	retCode := m.Run()
+	var retCode int
+	defer func() {
+		tearDown()
+		os.Exit(retCode)
+	}()
 
-	tearDown()
+	retCode = m.Run()
 
-	os.Exit(retCode)
 }
 
-func setUp() {
-	buildTestDB()
+func setUp() error {
+	return buildTestDB()
 }
 
 func tearDown() {
@@ -52,7 +59,7 @@ func TestGetSheetData(t *testing.T) {
 	var stateCount int
 	err := database.DB.QueryRow(`SELECT COUNT(DISTINCT state) FROM state_employment_data;`).Scan(&stateCount)
 	if err != nil {
-		log.Fatalln(err)
+		t.Error(err)
 	}
 
 	if stateCount != 50 {
@@ -159,19 +166,23 @@ func TestWriteToDb(t *testing.T) {
 				ID:              1,
 				SchoolName:      "bsu",
 				SchoolCity:      "bridgew",
+				SchoolState:     "MA",
 				StudentSize2018: 1,
 				StudentSize2017: 2,
 				StudentsOverPovertyLineThreeYearsAfterCompletion2017: 3,
 				ThreeYearRepaymentOverall2016:                        4,
+				ThreeYearRepaymentDecliningBalance2016:               4,
 			},
 			{
 				ID:              2,
 				SchoolName:      "bsu",
 				SchoolCity:      "bridgew",
+				SchoolState:     "MA",
 				StudentSize2018: 1,
 				StudentSize2017: 2,
 				StudentsOverPovertyLineThreeYearsAfterCompletion2017: 3,
 				ThreeYearRepaymentOverall2016:                        4,
+				ThreeYearRepaymentDecliningBalance2016:               4,
 			},
 		},
 	}
@@ -180,7 +191,7 @@ func TestWriteToDb(t *testing.T) {
 
 	idRows, err := database.DB.Query(`SELECT DISTINCT request_id FROM request`)
 	if err != nil {
-		log.Fatalln(err)
+		t.Error(err)
 	}
 
 	scoreCards := make([]dto.CollegeScoreCardResponseDTO, 0)
@@ -188,68 +199,79 @@ func TestWriteToDb(t *testing.T) {
 		var requestDataID int
 		err := idRows.Scan(&requestDataID)
 		if err != nil {
-			log.Fatalln(err)
+			t.Error(err)
 		}
-		fmt.Println(requestDataID)
 
 		var metadata dto.CollegeScoreCardMetadataDTO
 		metadataRow := database.DB.QueryRowx(`SELECT total_results, page_number, per_page FROM metadata WHERE metadata_id = $1`, requestDataID)
 
 		err = metadataRow.StructScan(&metadata)
 		if err != nil {
-			log.Fatalln(err)
+			t.Error(err)
 		}
 
 		results := make([]dto.CollegeScoreCardFieldsDTO, 0)
 		var result dto.CollegeScoreCardFieldsDTO
-		dataRows, err := database.DB.Queryx(`SELECT data_id, school_name, school_name, school_city, student_size_2018, student_size_2017, over_poverty_three_years_after_completetion_2017, three_year_repayment_overall_2016 FROM request_data WHERE request_id = $1`, requestDataID)
+		dataRows, err := database.DB.Queryx(`SELECT data_id,
+			school_name,
+			school_city,
+			school_state,
+			student_size_2018,
+			student_size_2017,
+			over_poverty_three_years_after_completetion_2017,
+			three_year_repayment_overall_2016,
+			three_year_repayment_declining_balance_2016
+			FROM request_data WHERE request_id = $1`,
+			requestDataID)
 		if err != nil {
-			log.Fatalln(err)
+			t.Error(err)
 		}
 
 		for dataRows.Next() {
 			err = dataRows.StructScan(&result)
 			if err != nil {
-				log.Fatalln(err)
+				t.Error(err)
 			}
 
 			results = append(results, result)
 		}
 
-		scoreCards = append(scoreCards, dto.CollegeScoreCardResponseDTO{metadata, results})
+		scoreCards = append(scoreCards, dto.CollegeScoreCardResponseDTO{Metadata: metadata, Results: results})
 
 	}
 
 	if !reflect.DeepEqual(scoreCards[0], testResponse) {
+		log.Println(scoreCards[0].TextOutput())
+		log.Println(testResponse.TextOutput())
 		t.Errorf("Inserted data does not equal queried data")
 	}
 }
 
-func buildTestDB() {
+func buildTestDB() error {
 	migration.InitalizeDB(os.Getenv("DATABASE_NAME") + "test")
 	var err error
 	database.DB, err = sqlx.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
-	migration.MigrateToLatest()
+	return migration.MigrateToLatest()
 }
 
 func tearTestDownDB() {
 
 	err := database.DB.Close()
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 
 	database.DB, err = sqlx.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 	defer func() {
 		err := database.DB.Close()
 		if err != nil {
-			log.Fatalln(err)
+			log.Panic(err)
 		}
 	}()
 
@@ -257,6 +279,6 @@ func tearTestDownDB() {
 
 	_, err = database.DB.Exec(statement)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panic(err)
 	}
 }
