@@ -3,7 +3,7 @@ package api
 import (
 	"Project1/database"
 	"Project1/dto"
-	"Project1/main"
+	"Project1/shared"
 	"bufio"
 	"encoding/json"
 	"io/ioutil"
@@ -34,7 +34,7 @@ func GetAPIData(writer *bufio.Writer) {
 	response, rawResponse := requestData(requestURL, httpClient)
 
 	if rawResponse != "" {
-		main.WriteToFile(rawResponse, writer, &fileLock)
+		shared.WriteToFile(rawResponse, writer, &fileLock)
 	} else {
 		writeCollegeScoreCardDataToDb(response)
 	}
@@ -57,7 +57,7 @@ func GetAPIData(writer *bufio.Writer) {
 			response, rawResponse := requestData(requestURL, httpClient)
 
 			if rawResponse != "" {
-				writeToFile(rawResponse, writer, &fileLock)
+				shared.WriteToFile(rawResponse, writer, &fileLock)
 			} else {
 				writeCollegeScoreCardDataToDb(response)
 			}

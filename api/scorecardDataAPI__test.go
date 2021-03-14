@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"Project1/config"
@@ -14,6 +14,8 @@ import (
 	"sync"
 	"testing"
 
+	_ "github.com/jackc/pgx/v4"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 )
@@ -41,115 +43,6 @@ func TestMain(m *testing.M) {
 	}()
 
 	retCode = m.Run()
-
-}
-
-func setUp() error {
-	return buildTestDB()
-}
-
-func tearDown() {
-	tearTestDownDB()
-}
-
-func TestGetSheetData(t *testing.T) {
-
-	getSheetData()
-
-	var stateCount int
-	err := database.DB.QueryRow(`SELECT COUNT(DISTINCT state) FROM state_employment_data;`).Scan(&stateCount)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if stateCount != 50 {
-		t.Errorf("Expected 50 states; Got %d", stateCount)
-	}
-
-}
-
-func TestGetJobDataDTOs(t *testing.T) {
-	rows := getSheetRows("MajorAndOccCodeTest.xlsx", "Sheet1")
-	jobDataDTOs := getJobDataDTOs(rows)
-
-	if len(jobDataDTOs) != 4 {
-		t.Errorf("Expected 4 rows; Got %d", len(jobDataDTOs))
-	}
-
-}
-
-func TestGetJobDataDTO(t *testing.T) {
-	row := []string{"01", "Alabama", "2", "000000", "Cross-industry", "cross-industry", "1235", "11-0000", "Management Occupations", "major", "83760", "1.2", "42.428", "0.77", "", "51.86", "107860", "0.6", "22.72", "31.80", "45.03", "63.07", "90.16", "47250", "66140", "93660", "131180", "187530"}
-
-	jobDataDTO := getJobDataDTO(row)
-
-	if !(jobDataDTO.State == "Alabama" &&
-		jobDataDTO.OccupationMajorTitle == "Management Occupations" &&
-		jobDataDTO.TotalEmployment == 83760 &&
-		jobDataDTO.PercentileSalary25thHourly == 31.799999 &&
-		jobDataDTO.PercentileSalary25thAnnual == 66140 &&
-		jobDataDTO.OccupationCode == "11-0000") {
-		t.Errorf("Mismatch Data: \n%s", jobDataDTO.TextOutput())
-	}
-
-}
-
-func TestRequestData(t *testing.T) {
-
-	httpClient := &http.Client{}
-	baseURL := "https://api.data.gov/ed/collegescorecard/v1/schools.json"
-
-	filterBase := createFilterBase()
-
-	page := 0
-
-	// make first request to get how many pages we need to retrieve
-	requestURL := getRequestURL(baseURL, filterBase)
-	response, rawResponse := requestData(requestURL, httpClient)
-	if rawResponse != "" {
-		t.Errorf("Response != 200")
-	}
-
-	responses := make([]dto.CollegeScoreCardResponseDTO, 0)
-	responses = append(responses, response)
-	sliceLock := &sync.Mutex{}
-
-	wg := sync.WaitGroup{}
-	for (page+1)*response.Metadata.ResultsPerPage <= response.Metadata.TotalResults {
-		page++
-
-		wg.Add(1)
-		go func(page int) {
-			defer wg.Done()
-
-			filters := make(map[string]string)
-			for k, v := range filterBase {
-				filters[k] = v
-			}
-			filters["page"] = strconv.Itoa(page)
-
-			requestURL := getRequestURL(baseURL, filters)
-			response, rawResponse := requestData(requestURL, httpClient)
-			if rawResponse != "" {
-				t.Errorf("Response != 200")
-			}
-			sliceLock.Lock()
-			responses = append(responses, response)
-			sliceLock.Unlock()
-
-		}(page)
-
-	}
-	wg.Wait()
-
-	totalData := 0
-	for _, val := range responses {
-		totalData += len(val.Results)
-	}
-
-	if totalData < 1000 {
-		t.Errorf("Did not retreive enough data; got %d", totalData)
-	}
 
 }
 
@@ -247,6 +140,73 @@ func TestWriteToDb(t *testing.T) {
 	}
 }
 
+func TestRequestData(t *testing.T) {
+
+	httpClient := &http.Client{}
+	baseURL := "https://api.data.gov/ed/collegescorecard/v1/schools.json"
+
+	filterBase := createFilterBase()
+
+	page := 0
+
+	// make first request to get how many pages we need to retrieve
+	requestURL := getRequestURL(baseURL, filterBase)
+	response, rawResponse := requestData(requestURL, httpClient)
+	if rawResponse != "" {
+		t.Errorf("Response != 200")
+	}
+
+	responses := make([]dto.CollegeScoreCardResponseDTO, 0)
+	responses = append(responses, response)
+	sliceLock := &sync.Mutex{}
+
+	wg := sync.WaitGroup{}
+	for (page+1)*response.Metadata.ResultsPerPage <= response.Metadata.TotalResults {
+		page++
+
+		wg.Add(1)
+		go func(page int) {
+			defer wg.Done()
+
+			filters := make(map[string]string)
+			for k, v := range filterBase {
+				filters[k] = v
+			}
+			filters["page"] = strconv.Itoa(page)
+
+			requestURL := getRequestURL(baseURL, filters)
+			response, rawResponse := requestData(requestURL, httpClient)
+			if rawResponse != "" {
+				t.Errorf("Response != 200")
+			}
+			sliceLock.Lock()
+			responses = append(responses, response)
+			sliceLock.Unlock()
+
+		}(page)
+
+	}
+	wg.Wait()
+
+	totalData := 0
+	for _, val := range responses {
+		totalData += len(val.Results)
+	}
+
+	if totalData < 1000 {
+		t.Errorf("Did not retreive enough data; got %d", totalData)
+	}
+
+}
+
+func setUp() error {
+	return buildTestDB()
+}
+
+func tearDown() {
+	tearTestDownDB()
+}
+
 func buildTestDB() error {
 	migration.InitalizeDB(os.Getenv("DATABASE_NAME") + "test")
 	var err error
@@ -279,6 +239,6 @@ func tearTestDownDB() {
 
 	_, err = database.DB.Exec(statement)
 	if err != nil {
-		log.Panic(err)
+		log.Println(err)
 	}
 }

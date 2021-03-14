@@ -1,6 +1,7 @@
 package spreadsheet
 
 import (
+	"Project1/config"
 	"Project1/database"
 	"Project1/dto"
 	"log"
@@ -10,7 +11,7 @@ import (
 )
 
 func GetSheetData() {
-	rows := getSheetRows("state_M2019_dl.xlsx", "State_M2019_dl")
+	rows := getSheetRows(config.ProjectRootPath+"/state_M2019_dl.xlsx", "State_M2019_dl")
 	jobDataDTOs := getJobDataDTOs(rows)
 	for _, jobDataDTO := range jobDataDTOs {
 		writeJobDataToDb(jobDataDTO)
