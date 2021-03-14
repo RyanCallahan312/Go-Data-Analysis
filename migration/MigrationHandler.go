@@ -10,8 +10,8 @@ import (
 )
 
 // GetLastMigration queries the migration table to find the current db version. if no results are found it defaults to V0.0.0
-func GetLastMigration() MigrationModel {
-	var lastMigration MigrationModel
+func GetLastMigration() Model {
+	var lastMigration Model
 	err := database.DB.QueryRowx(`SELECT * FROM migrations WHERE is_on_version=TRUE`).StructScan(&lastMigration)
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -23,13 +23,13 @@ func GetLastMigration() MigrationModel {
 				log.Panic(err)
 			}
 		}
-		return MigrationModel{0, "v0.0.0", true}
+		return Model{0, "v0.0.0", true}
 	}
 	return lastMigration
 }
 
 // UpdateDB will either roll back or build the db to a specified version
-func UpdateDB(lastMigration MigrationModel, isBuild bool, constraint *semver.Constraints) error {
+func UpdateDB(lastMigration Model, isBuild bool, constraint *semver.Constraints) error {
 
 	semanticVersions := getAvailableVersions()
 
@@ -54,7 +54,8 @@ func UpdateDB(lastMigration MigrationModel, isBuild bool, constraint *semver.Con
 	return updateMigrationTable(isBuild, lastMigration)
 }
 
-func MakeConstraint(lastMigration MigrationModel, isBuild bool, targetVersion string) *semver.Constraints {
+// MakeConstraint makes a constraint for building or rolling back to a taret db version
+func MakeConstraint(lastMigration Model, isBuild bool, targetVersion string) *semver.Constraints {
 	var constraint *semver.Constraints
 	var err error
 	if isBuild {
@@ -69,19 +70,23 @@ func MakeConstraint(lastMigration MigrationModel, isBuild bool, targetVersion st
 	return constraint
 }
 
-func updateMigrationTable(isBuild bool, lastMigration MigrationModel) error {
+func updateMigrationTable(isBuild bool, lastMigration Model) error {
 	tx, err := database.DB.Beginx()
 	if err != nil {
 		log.Panic(err)
 	}
 
-	defer func() error {
+	defer func() {
 		if err != nil {
 			_ = tx.Rollback()
-			return err
+			if err != nil {
+				log.Println(err)
+			}
 		}
 		err = tx.Commit()
-		return err
+		if err != nil {
+			log.Println(err)
+		}
 	}()
 
 	for i, version := range Versions {
@@ -92,7 +97,7 @@ func updateMigrationTable(isBuild bool, lastMigration MigrationModel) error {
 			isCurrentVersion = i == 0
 		}
 
-		var migration MigrationModel
+		var migration Model
 		migrationRow := tx.QueryRowx(`SELECT * FROM migrations WHERE version=$1`, version)
 
 		err = migrationRow.StructScan(&migration)

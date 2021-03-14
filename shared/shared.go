@@ -6,6 +6,7 @@ import (
 	"sync"
 )
 
+// WriteToFile writes a string to a file
 func WriteToFile(data string, writer *bufio.Writer, fileLock *sync.Mutex) {
 
 	fileLock.Lock()

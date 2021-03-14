@@ -10,7 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// Version all DB versions
+// Versions all DB versions
 var Versions = []string{
 	"v0.0.0",
 	"v0.0.1",
@@ -37,7 +37,7 @@ func MigrateToVersion(targetVersion string) error {
 		}
 	}
 
-	if isValidVersion == false {
+	if !isValidVersion {
 		return errors.New("Invalid version number")
 	}
 
@@ -61,6 +61,9 @@ func MigrateToVersion(targetVersion string) error {
 
 	constraint := MakeConstraint(lastMigration, isBuild, targetVersion)
 	err = UpdateDB(lastMigration, isBuild, constraint)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

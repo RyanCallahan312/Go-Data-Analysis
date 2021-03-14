@@ -32,7 +32,11 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-	migration.MigrateToLatest()
+	err = migration.MigrateToLatest()
+	if err != nil {
+		log.Panic(err)
+	}
+
 	defer func() {
 		err := database.DB.Close()
 		if err != nil {

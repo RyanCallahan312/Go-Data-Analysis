@@ -10,6 +10,7 @@ import (
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
 )
 
+// GetSheetData gets sheet data and writes it to db
 func GetSheetData() {
 	rows := getSheetRows(config.ProjectRootPath+"/state_M2019_dl.xlsx", "State_M2019_dl")
 	jobDataDTOs := getJobDataDTOs(rows)

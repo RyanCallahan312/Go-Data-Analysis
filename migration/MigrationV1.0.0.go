@@ -31,7 +31,6 @@ func rollbackV1_0_0(tx *sqlx.Tx) error {
 func MigrateV1_0_0(build bool, tx *sqlx.Tx) error {
 	if build {
 		return buildV1_0_0(tx)
-	} else {
-		return rollbackV1_0_0(tx)
 	}
+	return rollbackV1_0_0(tx)
 }

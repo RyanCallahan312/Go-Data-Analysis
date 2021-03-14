@@ -90,7 +90,7 @@ func MigrateV0_0_1(build bool, tx *sqlx.Tx) error {
 
 	if build {
 		return buildV0_0_1(tx)
-	} else {
-		return rollbackV0_0_1(tx)
 	}
+
+	return rollbackV0_0_1(tx)
 }
