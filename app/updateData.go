@@ -10,14 +10,14 @@ import (
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
 )
 
-type updateData struct {
+type updateData struct { //nolint
 	app.Compo
 
 	fileName  string
 	sheetName string
 }
 
-func (page *updateData) Render() app.UI {
+func (page *updateData) Render() app.UI { //nolint
 	return app.Div().Body(
 		app.A().Text("To Homepage").Href("/"),
 		app.H1().Text("Update Data"),
@@ -41,27 +41,33 @@ func (page *updateData) Render() app.UI {
 	)
 }
 
-func (page *updateData) onUpdateData(ctx app.Context, e app.Event) {
+func (page *updateData) onUpdateData(ctx app.Context, e app.Event) { //nolint
 	updateSheetDto := dto.UpdateSheetDTO{FileName: page.fileName, SheetName: page.sheetName}
 	sheetBytes, err := json.Marshal(updateSheetDto)
 	if err != nil {
 		log.Panic(err)
 	}
-	http.Post("http://localhost:8000/sheet", "application/json", bytes.NewBuffer(sheetBytes))
+	_, err = http.Post("http://localhost:8000/sheet", "application/json", bytes.NewBuffer(sheetBytes))
+	if err != nil {
+		log.Println(err)
+	}
 
-	http.Post("http://localhost:8000/api", "application/json", bytes.NewBuffer(make([]byte, 0)))
+	_, err = http.Post("http://localhost:8000/api", "application/json", bytes.NewBuffer(make([]byte, 0)))
+	if err != nil {
+		log.Println(err)
+	}
 	page.Update()
 
 }
 
-func (page *updateData) onFileChange(ctx app.Context, e app.Event) {
+func (page *updateData) onFileChange(ctx app.Context, e app.Event) { //nolint
 	file := ctx.JSSrc.Get("value").String()
 	page.fileName = file
 	page.Update()
 
 }
 
-func (page *updateData) onSheetChange(ctx app.Context, e app.Event) {
+func (page *updateData) onSheetChange(ctx app.Context, e app.Event) { //nolint
 	file := ctx.JSSrc.Get("value").String()
 	page.sheetName = file
 	page.Update()

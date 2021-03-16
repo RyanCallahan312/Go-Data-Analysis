@@ -81,7 +81,10 @@ func sheetMethods(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		w.Write(dataBytes)
+		_, err = w.Write(dataBytes)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 
 	case "POST":
 		var updateSheetDto dto.UpdateSheetDTO
@@ -94,10 +97,16 @@ func sheetMethods(w http.ResponseWriter, r *http.Request) {
 		spreadsheet.UpdateSheetData(updateSheetDto.FileName, updateSheetDto.SheetName)
 
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"message": "post called"}`))
+		_, err = w.Write([]byte(`{"message": "post called"}`))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	default:
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message": "not found"}`))
+		_, err := w.Write([]byte(`{"message": "not found"}`))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -113,15 +122,24 @@ func apiMethods(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		w.Write(dataBytes)
+		_, err = w.Write(dataBytes)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	case "POST":
 		//update api data
 		api.UpdateApiData()
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"message": "post called"}`))
+		_, err := w.Write([]byte(`{"message": "post called"}`))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	default:
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message": "not found"}`))
+		_, err := w.Write([]byte(`{"message": "not found"}`))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 }
 

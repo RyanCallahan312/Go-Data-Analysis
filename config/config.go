@@ -1,7 +1,7 @@
 package config
 
 import (
-	"log"
+	"os"
 	"path/filepath"
 	"runtime"
 
@@ -21,6 +21,11 @@ func InitEnv() {
 	var err error
 	Env, err = godotenv.Read(ProjectRootPath + "/.env")
 	if err != nil {
-		log.Panic(err)
+		Env = make(map[string]string)
+		Env["API_KEY"] = os.Getenv("API_KEY")
+		Env["MAINTENANCE_CONNECTION_STRING"] = os.Getenv("MAINTENANCE_CONNECTION_STRING")
+		Env["WORKING_CONNECTION_STRING"] = os.Getenv("WORKING_CONNECTION_STRING")
+		Env["TEST_CONNECTION_STRING"] = os.Getenv("TEST_CONNECTION_STRING")
+		Env["DATABASE_NAME"] = os.Getenv("DATABASE_NAME")
 	}
 }
