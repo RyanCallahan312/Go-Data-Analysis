@@ -2,17 +2,15 @@
 
 package main
 
-import "github.com/maxence-charriere/go-app/v7/pkg/app"
-
-type hello struct {
-	app.Compo
-}
-
-func (h *hello) Render() app.UI {
-	return app.Div().Body(app.H1().Text("Hello World!"), app.P().Text("I am :)"))
-}
+import (
+	_ "github.com/jackc/pgx/v4"
+	_ "github.com/jackc/pgx/v4/stdlib"
+	"github.com/maxence-charriere/go-app/v7/pkg/app"
+)
 
 func main() {
-	app.Route("/", &hello{})
+	app.Route("/", &homepage{})
+	app.Route("/visualization", &visualization{})
+	app.Route("/updateData", &updateData{})
 	app.Run()
 }

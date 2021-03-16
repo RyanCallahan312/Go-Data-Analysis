@@ -69,7 +69,7 @@ func TestGetJobDataDTOs(t *testing.T) {
 
 func TestGetSheetData(t *testing.T) {
 
-	GetSheetData()
+	UpdateSheetData("state_M2019_dl", "State_M2019_dl")
 
 	var stateCount int
 	err := database.DB.QueryRow(`SELECT COUNT(DISTINCT state) FROM state_employment_data;`).Scan(&stateCount)
@@ -84,6 +84,7 @@ func TestGetSheetData(t *testing.T) {
 }
 
 func setUp() error {
+	config.InitEnv()
 	return buildTestDB()
 }
 
@@ -92,9 +93,9 @@ func tearDown() {
 }
 
 func buildTestDB() error {
-	migration.InitalizeDB(os.Getenv("DATABASE_NAME") + "test")
+	migration.InitalizeDB(config.Env["DATABASE_NAME"] + "test")
 	var err error
-	database.DB, err = sqlx.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
+	database.DB, err = sqlx.Open("pgx", config.Env["TEST_CONNECTION_STRING"])
 	if err != nil {
 		log.Panic(err)
 	}
@@ -108,7 +109,7 @@ func tearTestDownDB() {
 		log.Panic(err)
 	}
 
-	database.DB, err = sqlx.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
+	database.DB, err = sqlx.Open("pgx", config.Env["MAINTENANCE_CONNECTION_STRING"])
 	if err != nil {
 		log.Panic(err)
 	}
@@ -119,7 +120,7 @@ func tearTestDownDB() {
 		}
 	}()
 
-	statement := fmt.Sprintf(`DROP DATABASE %stest`, os.Getenv("DATABASE_NAME"))
+	statement := fmt.Sprintf(`DROP DATABASE %stest`, config.Env["DATABASE_NAME"])
 
 	_, err = database.DB.Exec(statement)
 	if err != nil {

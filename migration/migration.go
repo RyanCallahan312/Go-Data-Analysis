@@ -1,12 +1,14 @@
 package migration
 
 import (
+	"Project1/config"
 	"errors"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/Masterminds/semver/v3"
+	_ "github.com/jackc/pgx/v4"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -70,7 +72,7 @@ func MigrateToVersion(targetVersion string) error {
 
 // InitalizeDB inalized the db with given name
 func InitalizeDB(name string) {
-	db, err := sqlx.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
+	db, err := sqlx.Open("pgx", config.Env["MAINTENANCE_CONNECTION_STRING"])
 	if err != nil {
 		log.Panic(err)
 	}

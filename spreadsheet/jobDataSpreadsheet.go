@@ -8,15 +8,66 @@ import (
 	"strconv"
 
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
+	"github.com/jmoiron/sqlx"
 )
 
-// GetSheetData gets sheet data and writes it to db
-func GetSheetData() {
-	rows := getSheetRows(config.ProjectRootPath+"/state_M2019_dl.xlsx", "State_M2019_dl")
+// UpdateSheetData gets sheet data and writes it to db
+func UpdateSheetData(fileName string, sheetName string) {
+	rows := getSheetRows(config.ProjectRootPath+"/"+fileName+".xlsx", sheetName)
 	jobDataDTOs := getJobDataDTOs(rows)
-	for _, jobDataDTO := range jobDataDTOs {
-		writeJobDataToDb(jobDataDTO)
+
+	tx, err := database.DB.Beginx()
+	if err != nil {
+		log.Panic(err)
 	}
+	defer func() {
+		if err != nil {
+			err = tx.Rollback()
+			if err != nil {
+				log.Panic(err)
+			}
+			return
+		}
+		err = tx.Commit()
+		if err != nil {
+			log.Panic(err)
+		}
+	}()
+
+	_, err = tx.Exec(`TRUNCATE state_employment_data CASCADE`)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	_, err = tx.Exec(`SELECT setval(pg_get_serial_sequence('state_employment_data', 'state_employment_data_id'), coalesce(max(state_employment_data_id),0) + 1, false) FROM state_employment_data`)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	for _, jobDataDTO := range jobDataDTOs {
+		writeJobDataToDb(jobDataDTO, tx)
+	}
+}
+
+// GetSheetData retrieves all spreadsheet data in db
+func GetSheetData() []dto.JobDataDTO {
+	rows, err := database.DB.Queryx(`SELECT state, occupation_major_title, total_employment, percentile_salary_25th_hourly, percentile_salary_25th_annual, occupation_code FROM state_employment_data`)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	allJobData := make([]dto.JobDataDTO, 0)
+	var jobData dto.JobDataDTO
+	for rows.Next() {
+		err = rows.StructScan(&jobData)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		allJobData = append(allJobData, jobData)
+	}
+
+	return allJobData
 }
 
 func getJobDataDTOs(rows [][]string) []dto.JobDataDTO {
@@ -74,26 +125,9 @@ func getJobDataDTO(row []string) dto.JobDataDTO {
 
 }
 
-func writeJobDataToDb(data dto.JobDataDTO) {
-	tx, err := database.DB.Beginx()
-	if err != nil {
-		log.Panic(err)
-	}
-	defer func() {
-		if err != nil {
-			err = tx.Rollback()
-			if err != nil {
-				log.Panic(err)
-			}
-			return
-		}
-		err = tx.Commit()
-		if err != nil {
-			log.Panic(err)
-		}
-	}()
+func writeJobDataToDb(data dto.JobDataDTO, tx *sqlx.Tx) {
 
-	_, err = tx.Exec(`INSERT INTO state_employment_data VALUES(DEFAULT, $1, $2, $3, $4, $5, $6)`,
+	_, err := tx.Exec(`INSERT INTO state_employment_data VALUES(DEFAULT, $1, $2, $3, $4, $5, $6)`,
 		data.State,
 		data.OccupationMajorTitle,
 		data.TotalEmployment,
