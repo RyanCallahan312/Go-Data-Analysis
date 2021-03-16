@@ -2,3 +2,6 @@ vendor/*
 .env
 out.txt
 err.txt
+Project1.exe
+*.wasm
+config/env.go

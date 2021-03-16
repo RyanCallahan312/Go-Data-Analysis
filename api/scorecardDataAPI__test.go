@@ -82,56 +82,7 @@ func TestWriteToDb(t *testing.T) {
 
 	writeCollegeScoreCardDataToDb(testResponse)
 
-	idRows, err := database.DB.Query(`SELECT DISTINCT request_id FROM request`)
-	if err != nil {
-		t.Error(err)
-	}
-
-	scoreCards := make([]dto.CollegeScoreCardResponseDTO, 0)
-	for idRows.Next() {
-		var requestDataID int
-		err := idRows.Scan(&requestDataID)
-		if err != nil {
-			t.Error(err)
-		}
-
-		var metadata dto.CollegeScoreCardMetadataDTO
-		metadataRow := database.DB.QueryRowx(`SELECT total_results, page_number, per_page FROM metadata WHERE metadata_id = $1`, requestDataID)
-
-		err = metadataRow.StructScan(&metadata)
-		if err != nil {
-			t.Error(err)
-		}
-
-		results := make([]dto.CollegeScoreCardFieldsDTO, 0)
-		var result dto.CollegeScoreCardFieldsDTO
-		dataRows, err := database.DB.Queryx(`SELECT data_id,
-			school_name,
-			school_city,
-			school_state,
-			student_size_2018,
-			student_size_2017,
-			over_poverty_three_years_after_completetion_2017,
-			three_year_repayment_overall_2016,
-			three_year_repayment_declining_balance_2016
-			FROM request_data WHERE request_id = $1`,
-			requestDataID)
-		if err != nil {
-			t.Error(err)
-		}
-
-		for dataRows.Next() {
-			err = dataRows.StructScan(&result)
-			if err != nil {
-				t.Error(err)
-			}
-
-			results = append(results, result)
-		}
-
-		scoreCards = append(scoreCards, dto.CollegeScoreCardResponseDTO{Metadata: metadata, Results: results})
-
-	}
+	scoreCards := GetApiData()
 
 	if !reflect.DeepEqual(scoreCards[0], testResponse) {
 		log.Println(scoreCards[0].TextOutput())
@@ -200,6 +151,7 @@ func TestRequestData(t *testing.T) {
 }
 
 func setUp() error {
+	config.InitEnv()
 	return buildTestDB()
 }
 
@@ -208,9 +160,9 @@ func tearDown() {
 }
 
 func buildTestDB() error {
-	migration.InitalizeDB(os.Getenv("DATABASE_NAME") + "test")
+	migration.InitalizeDB(config.Env["DATABASE_NAME"] + "test")
 	var err error
-	database.DB, err = sqlx.Open("pgx", os.Getenv("TEST_CONNECTION_STRING"))
+	database.DB, err = sqlx.Open("pgx", config.Env["TEST_CONNECTION_STRING"])
 	if err != nil {
 		log.Panic(err)
 	}
@@ -224,7 +176,7 @@ func tearTestDownDB() {
 		log.Panic(err)
 	}
 
-	database.DB, err = sqlx.Open("pgx", os.Getenv("MAINTENANCE_CONNECTION_STRING"))
+	database.DB, err = sqlx.Open("pgx", config.Env["MAINTENANCE_CONNECTION_STRING"])
 	if err != nil {
 		log.Panic(err)
 	}
@@ -235,7 +187,7 @@ func tearTestDownDB() {
 		}
 	}()
 
-	statement := fmt.Sprintf(`DROP DATABASE %stest`, os.Getenv("DATABASE_NAME"))
+	statement := fmt.Sprintf(`DROP DATABASE %stest`, config.Env["DATABASE_NAME"])
 
 	_, err = database.DB.Exec(statement)
 	if err != nil {

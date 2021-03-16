@@ -6,16 +6,22 @@ import (
 	"sync"
 )
 
+var (
+	// Writer error writer
+	Writer   *bufio.Writer
+	fileLock *sync.Mutex
+)
+
 // WriteToFile writes a string to a file
-func WriteToFile(data string, writer *bufio.Writer, fileLock *sync.Mutex) {
+func WriteToFile(data string) {
 
 	fileLock.Lock()
-	_, err := writer.WriteString(data)
+	_, err := Writer.WriteString(data)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	err = writer.Flush()
+	err = Writer.Flush()
 	if err != nil {
 		log.Panic(err)
 	}

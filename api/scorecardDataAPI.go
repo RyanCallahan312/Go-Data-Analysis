@@ -1,24 +1,25 @@
 package api
 
 import (
+	"Project1/config"
 	"Project1/database"
 	"Project1/dto"
 	"Project1/shared"
-	"bufio"
 	"encoding/json"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"sync"
 	"time"
 )
 
-// GetAPIData gets the api data and writes it to the DB
-func GetAPIData(writer *bufio.Writer) {
+// UpdateApiData gets the api data and writes it to the DB
+func UpdateApiData() {
+
+	clearOldData()
 
 	httpClient := &http.Client{}
 	baseURL := "https://api.data.gov/ed/collegescorecard/v1/schools.json"
@@ -27,14 +28,12 @@ func GetAPIData(writer *bufio.Writer) {
 
 	page := 0
 
-	var fileLock sync.Mutex
-
 	// make first request to get how many pages we need to retrieve
 	requestURL := getRequestURL(baseURL, filterBase)
 	response, rawResponse := requestData(requestURL, httpClient)
 
 	if rawResponse != "" {
-		shared.WriteToFile(rawResponse, writer, &fileLock)
+		shared.WriteToFile(rawResponse)
 	} else {
 		writeCollegeScoreCardDataToDb(response)
 	}
@@ -57,7 +56,7 @@ func GetAPIData(writer *bufio.Writer) {
 			response, rawResponse := requestData(requestURL, httpClient)
 
 			if rawResponse != "" {
-				shared.WriteToFile(rawResponse, writer, &fileLock)
+				shared.WriteToFile(rawResponse)
 			} else {
 				writeCollegeScoreCardDataToDb(response)
 			}
@@ -66,6 +65,103 @@ func GetAPIData(writer *bufio.Writer) {
 
 	}
 	wg.Wait()
+}
+
+// GetApiData retrieves api data from database
+func GetApiData() []dto.CollegeScoreCardResponseDTO {
+	idRows, err := database.DB.Query(`SELECT DISTINCT request_id FROM request`)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	scoreCards := make([]dto.CollegeScoreCardResponseDTO, 0)
+	for idRows.Next() {
+		var requestDataID int
+		err := idRows.Scan(&requestDataID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		var metadata dto.CollegeScoreCardMetadataDTO
+		metadataRow := database.DB.QueryRowx(`SELECT total_results, page_number, per_page FROM metadata WHERE metadata_id = $1`, requestDataID)
+
+		err = metadataRow.StructScan(&metadata)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		results := make([]dto.CollegeScoreCardFieldsDTO, 0)
+		var result dto.CollegeScoreCardFieldsDTO
+		dataRows, err := database.DB.Queryx(`SELECT data_id,
+			school_name,
+			school_city,
+			school_state,
+			student_size_2018,
+			student_size_2017,
+			over_poverty_three_years_after_completetion_2017,
+			three_year_repayment_overall_2016,
+			three_year_repayment_declining_balance_2016
+			FROM request_data WHERE request_id = $1`,
+			requestDataID)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		for dataRows.Next() {
+			err = dataRows.StructScan(&result)
+			if err != nil {
+				log.Panic(err)
+			}
+
+			results = append(results, result)
+		}
+
+		scoreCards = append(scoreCards, dto.CollegeScoreCardResponseDTO{Metadata: metadata, Results: results})
+
+	}
+
+	return scoreCards
+}
+
+func clearOldData() {
+	tx, err := database.DB.Beginx()
+	if err != nil {
+		log.Panic(err)
+	}
+
+	defer func() {
+		if err != nil {
+			err = tx.Rollback()
+			if err != nil {
+				log.Panic(err)
+			}
+			return
+		}
+		err = tx.Commit()
+		if err != nil {
+			log.Panic(err)
+		}
+	}()
+
+	_, err = tx.Exec(`TRUNCATE metadata, request, request_data CASCADE`)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	_, err = tx.Exec(`SELECT setval(pg_get_serial_sequence('request', 'request_id'), coalesce(max(request_id),0) + 1, false) FROM request`)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	_, err = tx.Exec(`SELECT setval(pg_get_serial_sequence('request_data', 'request_data_id'), coalesce(max(request_data_id),0) + 1, false) FROM request_data`)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	_, err = tx.Exec(`SELECT setval(pg_get_serial_sequence('metadata', 'metadata_id'), coalesce(max(metadata_id),0) + 1, false) FROM metadata`)
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
 func getRequestURL(baseURL string, filters map[string]string) *url.URL {
@@ -172,7 +268,6 @@ func writeCollegeScoreCardDataToDb(data dto.CollegeScoreCardResponseDTO) {
 	if err != nil {
 		log.Panic(err)
 	}
-
 	results := data.Results
 	for _, requestData := range results {
 		_, err = tx.Exec(`INSERT INTO request_data 
@@ -194,7 +289,7 @@ func createFilterBase() map[string]string {
 
 	filters["school.degrees_awarded.predominant"] = "2,3"
 	filters["fields"] = "id,school.name,school.city,school.state,2018.student.size,2017.student.size,2017.earnings.3_yrs_after_completion.overall_count_over_poverty_line,2016.repayment.3_yr_repayment.overall,2016.repayment.repayment_cohort.3_year_declining_balance"
-	filters["api_key"] = os.Getenv("API_KEY")
+	filters["api_key"] = config.Env["API_KEY"]
 
 	return filters
 }
