@@ -66,6 +66,36 @@ func UpdateApiData() {
 	}
 	wg.Wait()
 }
+func GetApiDataByState() []dto.CollegeScoreCardFieldsDTO {
+
+	results := make([]dto.CollegeScoreCardFieldsDTO, 0)
+	var result dto.CollegeScoreCardFieldsDTO
+	dataRows, err := database.DB.Queryx(`SELECT data_id,
+		school_name,
+		school_city,
+		school_state,
+		student_size_2018,
+		student_size_2017,
+		over_poverty_three_years_after_completetion_2017,
+		three_year_repayment_overall_2016,
+		three_year_repayment_declining_balance_2016
+		FROM request_data`)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	for dataRows.Next() {
+		err = dataRows.StructScan(&result)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		results = append(results, result)
+	}
+
+	return results
+
+}
 
 // GetApiData retrieves api data from database
 func GetApiData() []dto.CollegeScoreCardResponseDTO {
