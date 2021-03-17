@@ -34,6 +34,9 @@ func main() {
 		Name:        "Project1",
 		Title:       "Project1",
 		Description: "Comp490Project1",
+		Styles: []string{
+			"/web/styles.css",
+		},
 	})
 
 	http.HandleFunc("/api", apiMethods)

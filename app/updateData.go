@@ -58,6 +58,11 @@ func (page *updateData) Render() app.UI { //nolint
 }
 
 func (page *updateData) onUpdateData(ctx app.Context, e app.Event) { //nolint
+	if page.fileName == "" || page.sheetName == "" {
+		page.loadingMessage = "Please enter values for fileName and sheetName"
+		page.Update()
+		return
+	}
 	go func() {
 		app.Dispatch(func() {
 			page.loadingMessage = "Updating data"

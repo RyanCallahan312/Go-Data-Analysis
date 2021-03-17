@@ -70,8 +70,8 @@ func (page *visualization) Render() app.UI { //nolint
 				page.selectVizType(2, ctx, e)
 				page.getData(ctx, e)
 			}),
-		app.If(page.vizType == 1 && (page.data != nil && len(page.data) > 0), &TextVisualization{Data: page.data, TitleBar: page.titleBar}),
-		app.If(page.vizType == 2 && (page.data != nil && len(page.data) > 0), &MapVisualization{Data: page.data, TitleBar: page.titleBar}),
+		app.If(page.vizType == 1 && (page.data != nil && len(page.data) > 0), &TextVisualization{Data: page.data, TitleBar: page.titleBar, AnalysisType: page.analysisType}),
+		app.If(page.vizType == 2 && (page.data != nil && len(page.data) > 0), &MapVisualization{Data: page.data, TitleBar: page.titleBar, AnalysisType: page.analysisType}),
 	)
 }
 

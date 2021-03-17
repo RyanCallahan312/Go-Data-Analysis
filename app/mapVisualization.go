@@ -6,13 +6,16 @@ import (
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
 )
 
-type MapVisualization struct {
+type MapVisualization struct { // no-lint
 	app.Compo
 
-	TitleBar []string
-	Data     []interface{}
+	AnalysisType int
+	TitleBar     []string
+	Data         []interface{}
 }
 
-func (page *MapVisualization) Render() app.UI {
-	return app.P().Text("Map Render :)")
+func (page *MapVisualization) Render() app.UI { // no-lint
+	return app.Div().Body(
+		app.P().Text("Map Render :)"),
+	)
 }
