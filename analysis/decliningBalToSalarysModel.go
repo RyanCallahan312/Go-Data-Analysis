@@ -4,4 +4,5 @@ type DecliningBalToSalarysModel struct {
 	State            string
 	DecliningBalance float32
 	Salary25Percent  int
+	Ratio            float32
 }

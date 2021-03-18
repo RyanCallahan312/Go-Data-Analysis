@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"Project1/dto"
+	"math"
 	"sort"
 )
 
@@ -17,9 +18,9 @@ func CollegeGradsToAmountOfJobs(scorecardData []dto.CollegeScoreCardFieldsDTO, j
 
 		val, exists := stateToData[usc[scorecardFields.SchoolState]]
 		if !exists {
-			val = [2]int{scorecardFields.StudentSize2018, 0}
+			val = [2]int{scorecardFields.StudentSize2018 / 4, 0}
 		} else {
-			val[0] += scorecardFields.StudentSize2018
+			val[0] += scorecardFields.StudentSize2018 / 4
 		}
 
 		stateToData[usc[scorecardFields.SchoolState]] = val
@@ -51,12 +52,63 @@ func CollegeGradsToAmountOfJobs(scorecardData []dto.CollegeScoreCardFieldsDTO, j
 
 	for i, key := range keys {
 		val := stateToData[key]
-		model := CollegeGradsToJobsModel{State: key, CollegeGrads: val[0], NumberOfJobs: val[1]}
+		ratio := float32(val[0]) / float32(val[1])
+		model := CollegeGradsToJobsModel{State: key, CollegeGrads: val[0], NumberOfJobs: val[1], Ratio: float32(math.Floor(float64(ratio)*1000) / 1000)}
 		result[i] = model
 	}
 
 	return result
 
+}
+
+func DecliningBalanceToSalary(scorecardData []dto.CollegeScoreCardFieldsDTO, jobData []dto.JobDataDTO) []interface{} {
+	// interface is [int, int]
+	stateToData := make(map[string][2]interface{})
+
+	for _, scorecardFields := range scorecardData {
+		if usc[scorecardFields.SchoolState] == "" {
+			continue
+		}
+
+		val, exists := stateToData[usc[scorecardFields.SchoolState]]
+		if !exists {
+			val = [2]interface{}{scorecardFields.ThreeYearRepaymentDecliningBalance2016, 0}
+		} else {
+			val[0] = val[0].(float32) + scorecardFields.ThreeYearRepaymentDecliningBalance2016
+		}
+
+		stateToData[usc[scorecardFields.SchoolState]] = val
+	}
+
+	for _, jobFields := range jobData {
+
+		val, exists := stateToData[jobFields.State]
+		if !exists {
+			val = [2]interface{}{float32(0), jobFields.PercentileSalary25thAnnual}
+		} else {
+			val[1] = val[1].(int) + jobFields.PercentileSalary25thAnnual
+		}
+
+		stateToData[jobFields.State] = val
+
+	}
+
+	var keys []string
+	for k := range stateToData {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	result := make([]interface{}, len(keys))
+
+	for i, key := range keys {
+		val := stateToData[key]
+		ratio := float32(val[1].(int)) / val[0].(float32)
+		model := DecliningBalToSalarysModel{State: key, DecliningBalance: val[0].(float32), Salary25Percent: val[1].(int), Ratio: float32(math.Floor(float64(ratio)*1000) / 1000)}
+		result[i] = model
+	}
+
+	return result
 }
 
 // courtacy of tmaiaroto on github https://gist.github.com/tmaiaroto/4ec7668ae986335b0a6d

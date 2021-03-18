@@ -32,7 +32,7 @@ func (page *visualization) Render() app.UI { //nolint
 			ID("analysisType1").
 			Name("analysisType").
 			OnChange(func(ctx app.Context, e app.Event) {
-				page.selectAnalysisType(1, ctx, e)
+				page.getData(1, ctx, e)
 			}),
 		app.Br(),
 		app.Label().
@@ -43,7 +43,7 @@ func (page *visualization) Render() app.UI { //nolint
 			ID("analysisType2").
 			Name("analysisType").
 			OnChange(func(ctx app.Context, e app.Event) {
-				page.selectAnalysisType(2, ctx, e)
+				page.getData(2, ctx, e)
 			}),
 		app.Br(),
 		app.Br(),
@@ -56,7 +56,6 @@ func (page *visualization) Render() app.UI { //nolint
 			Name("vizType").
 			OnChange(func(ctx app.Context, e app.Event) {
 				page.selectVizType(1, ctx, e)
-				page.getData(ctx, e)
 			}),
 		app.Br(),
 		app.Label().
@@ -68,22 +67,23 @@ func (page *visualization) Render() app.UI { //nolint
 			Name("vizType").
 			OnChange(func(ctx app.Context, e app.Event) {
 				page.selectVizType(2, ctx, e)
-				page.getData(ctx, e)
 			}),
 		app.If(page.vizType == 1 && (page.data != nil && len(page.data) > 0), &TextVisualization{Data: page.data, TitleBar: page.titleBar, AnalysisType: page.analysisType}),
-		app.If(page.vizType == 2 && (page.data != nil && len(page.data) > 0), &MapVisualization{Data: page.data, TitleBar: page.titleBar, AnalysisType: page.analysisType}),
+		app.If(page.vizType == 2 && (page.data != nil && len(page.data) > 0), &MapVisualization{Data: page.data, TitleBar: page.titleBar, AnalysisType: page.analysisType, HtmlMap: ""}),
 	)
 }
 
 func (page *visualization) selectAnalysisType(analysisType int, ctx app.Context, e app.Event) {
 	page.analysisType = analysisType
+	page.Update()
 }
 
 func (page *visualization) selectVizType(vizType int, ctx app.Context, e app.Event) {
 	page.vizType = vizType
+	page.Update()
 }
 
-func (page *visualization) getData(ctx app.Context, e app.Event) {
+func (page *visualization) getData(analysisType int, ctx app.Context, e app.Event) {
 	go func() {
 		var scorecardData []dto.CollegeScoreCardFieldsDTO
 		resp, err := http.Get("http://localhost:8000/api")
@@ -115,14 +115,14 @@ func (page *visualization) getData(ctx app.Context, e app.Event) {
 			log.Panic(err)
 		}
 
-		if page.analysisType == 1 {
+		if analysisType == 1 {
 			page.data = analysis.CollegeGradsToAmountOfJobs(scorecardData, jobData)
+			page.titleBar = []string{"State", "College Grads 2018", "Total Employment", "Grads/Employment"}
 		} else {
-			page.data = analysis.CollegeGradsToAmountOfJobs(scorecardData, jobData)
+			page.data = analysis.DecliningBalanceToSalary(scorecardData, jobData)
+			page.titleBar = []string{"State", "Declining Balance", "25th Percentile Salary", "Balance/Salary"}
 		}
-		page.titleBar = []string{"State", "College Grads 2018", "Total Employment"}
-
-		log.Println("gotData")
+		page.selectAnalysisType(analysisType, ctx, e)
 		app.Dispatch(func() { page.Update() })
 	}()
 
