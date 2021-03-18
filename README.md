@@ -51,8 +51,10 @@ make run
 
 # Test
 
-To test, in the top level directory run:
+To unit test, in the top level directory run:
 
 ```
 make test
 ```
+
+To gui test, see test plan document located at ./guiTestPlan/TestPlan.xlsx

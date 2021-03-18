@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/360EntSecGroup-Skylar/excelize/v2 v2.3.2
 	github.com/Masterminds/semver/v3 v3.1.1
-	github.com/RyanCallahan312/go-plotly-clone v0.2.1
+	github.com/MetalBlueberry/go-plotly v0.3.1
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/jmoiron/sqlx v1.3.1

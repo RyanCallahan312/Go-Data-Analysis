@@ -4,10 +4,8 @@ github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Masterminds/semver/v3 v3.1.1 h1:hLg3sBzpNErnxhQtUy/mmLR2I9foDujNK030IGemrRc=
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
-github.com/RyanCallahan312/go-plotly-clone v0.2.0 h1:oOVTZN7y4tvPxfxyEWdngyKHBsqwM+C7CTngH65SqUg=
-github.com/RyanCallahan312/go-plotly-clone v0.2.0/go.mod h1:xOwgoXGwe1I2SqPokjYSzd1d9JLPJGzCagWSdSqclps=
-github.com/RyanCallahan312/go-plotly-clone v0.2.1 h1:DFtDKro0PmRuo5s3yXkQlQkMubCXEj8FOIXpEgYdnO8=
-github.com/RyanCallahan312/go-plotly-clone v0.2.1/go.mod h1:xOwgoXGwe1I2SqPokjYSzd1d9JLPJGzCagWSdSqclps=
+github.com/MetalBlueberry/go-plotly v0.3.1 h1:jDnjuDSCXt0gzb+hxD4lu0mqKO6ipdr0vUdecHHvauE=
+github.com/MetalBlueberry/go-plotly v0.3.1/go.mod h1:9NQ0+c3QE6NQQF4Zv1pH4bGJPg7pX9Pbc27YEvuds/c=
 github.com/cockroachdb/apd v1.1.0 h1:3LFP3629v+1aKXU5Q37mxmRxX/pIu1nijXydLShEq5I=
 github.com/cockroachdb/apd v1.1.0/go.mod h1:8Sl8LxpKi29FqWXR16WEFZRNSz3SoPzUzeMeY4+DwBQ=
 github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e/go.mod h1:F5haX7vjVVG0kc13fIWeqUViNPyEJxv/OmvnBo0Yme4=
@@ -109,7 +107,6 @@ github.com/mattn/go-isatty v0.0.12 h1:wuysRhFDzyxgEmMf5xjvJ2M9dZoWAXNNr5LSBS7uHX
 github.com/mattn/go-isatty v0.0.12/go.mod h1:cbi8OIDigv2wuxKPP5vlRcQ1OAZbq2CE4Kysco4FUpU=
 github.com/mattn/go-sqlite3 v1.14.6 h1:dNPt6NO46WmLVt2DLNpwczCmdV5boIZ6g/tlDrlRUbg=
 github.com/mattn/go-sqlite3 v1.14.6/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
-github.com/maxence-charriere/go-app v1.3.6 h1:ivoXYI+Wf11vrmgoew5hcFDw4djFin2HzwBGjs8yV+4=
 github.com/maxence-charriere/go-app/v7 v7.3.0 h1:WKg0DWxIuRASPwwn+XXQHxKX5+L3QOmU559cwhUriAo=
 github.com/maxence-charriere/go-app/v7 v7.3.0/go.mod h1:3S3cKNiz6/ib081vPTkM+WOuIIK7qtq+7wtHFX9/Svw=
 github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 h1:RWengNIwukTxcDr9M+97sNutRR1RKhG96O6jWumTTnw=
@@ -118,8 +115,6 @@ github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4 h1:49lOXmGaUpV9Fz3gd7T
 github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4/go.mod h1:4OwLy04Bl9Ef3GJJCoec+30X3LQs/0/m4HFRt/2LUSA=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
-github.com/plotly/plotly.go v0.0.0-20170607205252-ce621f4e715e h1:CiTRm2dpy920lm128z3ektl2c5+90+VFCkMo0KTwWlU=
-github.com/plotly/plotly.go v0.0.0-20170607205252-ce621f4e715e/go.mod h1:iAgtjS3v6uUV9HWdK7nJRUOd73GAd1DIK7wPxWs2rQI=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/richardlehane/mscfb v1.0.3 h1:rD8TBkYWkObWO0oLDFCbwMeZ4KoalxQy+QgniCj3nKI=

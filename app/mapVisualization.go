@@ -4,10 +4,12 @@ package main
 
 import (
 	"Project1/analysis"
+	"bytes"
+	"encoding/json"
+	"html/template"
 	"log"
 
-	grob "github.com/RyanCallahan312/go-plotly-clone/graph_objects"
-	"github.com/RyanCallahan312/go-plotly-clone/offline"
+	grob "github.com/MetalBlueberry/go-plotly/graph_objects"
 	"github.com/maxence-charriere/go-app/v7/pkg/app"
 )
 
@@ -33,11 +35,7 @@ func (page *MapVisualization) Render() app.UI { // no-lint
 		page.getMap()
 
 	}
-	log.Println(page.HtmlMap)
-	return app.Div().Body(
-		app.P().Text("Map Render :)"),
-		app.If(page.HtmlMap != "", app.IFrame().SrcDoc(page.HtmlMap)),
-	)
+	return app.Div().Body(app.If(page.HtmlMap != "", app.IFrame().SrcDoc(page.HtmlMap)))
 }
 
 func (page *MapVisualization) getMap() {
@@ -95,11 +93,26 @@ func (page *MapVisualization) getMap() {
 		},
 	}
 
-	bytes := offline.FigToBuffer(fig)
-	page.HtmlMap = bytes.String()
+	page.HtmlMap = page.figToHtml(fig)
 	log.Println(page.HtmlMap)
 
 	page.Update()
+}
+
+func (page *MapVisualization) figToHtml(fig *grob.Fig) string {
+	figBytes, err := json.Marshal(fig)
+	if err != nil {
+		panic(err)
+	}
+
+	tmpl, err := template.New("plotly").Parse(baseHtml)
+	if err != nil {
+		panic(err)
+	}
+
+	buf := &bytes.Buffer{}
+	tmpl.Execute(buf, string(figBytes))
+	return buf.String()
 }
 
 var nameToAbbrv = map[string]string{
@@ -154,3 +167,16 @@ var nameToAbbrv = map[string]string{
 	"Wisconsin":      "WI",
 	"Wyoming":        "WY",
 }
+
+var baseHtml = `
+	<head>
+		<script src="https://cdn.plot.ly/plotly-1.58.4.min.js"></script>
+	</head>
+	</body>
+		<div id="plot"></div>
+	<script>
+		data = JSON.parse('{{ . }}')
+		Plotly.newPlot('plot', data);
+	</script>
+	<body>
+	`
