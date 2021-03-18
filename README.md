@@ -34,11 +34,11 @@ To hit the api you must create a file named .env with your api key. An example o
 ```API_KEY=<Your Api Key Here>
 MAINTENANCE_CONNECTION_STRING=port=<Postgres Port Number> host=<Host IP> user=root password=toor<default user created by scripts, you may want to change this> dbname=posgres sslmode=disable
 WORKING_CONNECTION_STRING=port=<Postgres Port Number> host=<Host IP> user=root password=toor<default user created by scripts, you may want to change this> dbname=<same as is specified in the DATABASE_NAME variable> sslmode=disable
-TEST_CONNECTION_STRING=<same as WORKING_CONNECTION_STRING except the database field should have 'test' added to the end> sslmode=disable
+TEST_CONNECTION_STRING=<same as WORKING_CONNECTION_STRING except the database field should be DATABASE_NAME with 'test' added to the end> sslmode=disable
 DATABASE_NAME=<whatever db name you want, make sure this aligns with your connection strings>
 ```
 
-***Make sure dbname is the last field in your connection string***
+***Make sure dbname in your connection strings is as specified in the example above***
 
 # Build and Run
 
