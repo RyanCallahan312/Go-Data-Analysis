@@ -35,8 +35,11 @@ jobs:
       with:
         go-version: 1.15
 
+    - name: Install make
+      run: sudo apt-get install build-essential
+
     - name: Build
-      run: go build -v ./...
+      run: make build
 
     - name: Test
       env:
@@ -44,4 +47,5 @@ jobs:
         MAINTENANCE_CONNECTION_STRING: ${{ secrets.MAINTENANCE_CONNECTION_STRING }}
         TEST_CONNECTION_STRING: ${{ secrets.TEST_CONNECTION_STRING }}
         WORKING_CONNECTION_STRING: ${{ secrets.WORKING_CONNECTION_STRING }}
-      run: go test -v ./...
+        DATABASE_NAME: ${{secrets.DATABASE_NAME}}
+      run: make test

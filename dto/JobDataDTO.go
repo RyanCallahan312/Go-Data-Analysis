@@ -1,4 +1,4 @@
-package main
+package dto
 
 import (
 	"fmt"
@@ -6,12 +6,12 @@ import (
 
 // JobDataDTO holds the job data from a 2019 massachusetts job/wage data spreadsheet
 type JobDataDTO struct {
-	State                      string
-	OccupationMajorTitle       string
-	TotalEmployment            int
-	PercentileSalary25thHourly float32
-	PercentileSalary25thAnnual int
-	OccupationCode             string
+	State                      string  `json:"state" db:"state"`
+	OccupationMajorTitle       string  `json:"occupationMajorTitle" db:"occupation_major_title"`
+	TotalEmployment            int     `json:"totalEmployment" db:"total_employment"`
+	PercentileSalary25thHourly float32 `json:"percentileSalary25thHourly" db:"percentile_salary_25th_hourly"`
+	PercentileSalary25thAnnual int     `json:"percentileSalary25thAnnual" db:"percentile_salary_25th_annual"`
+	OccupationCode             string  `json:"occupationCode" db:"occupation_code"`
 }
 
 // TextOutput job data to string
