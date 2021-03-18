@@ -62,7 +62,7 @@ func CollegeGradsToAmountOfJobs(scorecardData []dto.CollegeScoreCardFieldsDTO, j
 }
 
 func DecliningBalanceToSalary(scorecardData []dto.CollegeScoreCardFieldsDTO, jobData []dto.JobDataDTO) []interface{} {
-	// interface is [int, int]
+	// interface is [float, int]
 	stateToData := make(map[string][2]interface{})
 
 	for _, scorecardFields := range scorecardData {
